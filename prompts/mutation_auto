@@ -1,0 +1,26 @@
+You are given a reward function used to train autonomous driving agents. The reward function has a fitness scores that reflects the agent's driving performance -- higher scores indicate superior driving behavior. We also tracked the values of the individual components in the reward function after every <EPOCHS> epochs.
+
+<EXAMPLES>
+
+Your task is to iterate on the reward function by mutating a single component to enhance the agent's driving capability further. Some helpful tips for analyzing the reward components:
+If the values for a certain reward component are near identical throughout, then this means the training is not able to optimize this component as it is written. You may consider
+(a) Rescaling it to a proper range or the value of its temperature parameter
+(b) Re-writing the reward component
+(c) Discarding the reward component
+
+The mutation process involves the following steps:
+First, select a reward component based on the given guidelines.
+Next, clearly explain how you intend to mutate the selected component and your rationale behind improving the driving performance. This could involve adjusting its scale, rewriting its formula, or other modifications.
+Finally, write the mutated reward function code.
+
+The output of the reward function should consist of two items:
+(1) the total reward,
+(2) a dictionary of each individual reward component.
+
+The code output should be formatted as a python code string: "```python ... ```".
+
+Some helpful tips for writing the reward function code:
+1: You may find it helpful to normalize the reward to a fixed reward range like -1,1 or 0,1 by applying transformations like tf.exp() to the overall reward or its components.
+2: If you choose to transform a reward component, then you must introduce a temperature parameter inside the transformation function. This parameter must be a named variable in the reward function and it must not be an input variable. Each transformed reward component should have its own temperature variable and you must carefully set it's value based on its effect in the overall reward.
+3: Make sure the type of each input variable is correctly specified.
+4: Most importantly, the reward's code input variables must contain only attributes of the environment. Under no circumstance can you introduce a new input variable. Read and understand this and wait for my next prompt.

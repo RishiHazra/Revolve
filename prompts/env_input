@@ -1,0 +1,69 @@
+from scipy.spatial.transform import Rotation as R
+import numpy as np
+class Env:
+    def __init__(self):
+        self.client = CarClient()
+        action= [CarControls().steering, CarControls().throttle]
+
+    def state(self):
+        position_info = self.client.getCarState().kinematics_estimated
+
+        # Current x, y position of the car in the simulation environment.
+        curr_x, curr_y = position_info.position.x_val, position_info.position.y_val
+
+        # Yaw and pitch of the car in degrees.
+        yaw, pitch = self.get_orientation(position_info)
+
+        # Linear velocity of the car in the x and y directions, in meters per second.
+        linear_velocity = position_info.linear_velocity
+        vx, vy = linear_velocity.x_val, linear_velocity.y_val
+
+        # Angular velocities of the car
+        angular_velocity_x, angular_velocity_y, angular_velocity_z = position_info.kinematics_estimated.angular_velocity.x_val, position_info.kinematics_estimated.angular_velocity.y_val, position_info.kinematics_estimated.angular_velocity.z_val
+
+        # Speed of the car in meters per second.
+        speed = position_info.speed
+
+        # Collision information with True or False value.
+        collision = self.client.simGetCollisionInfo().has_collided
+
+        # History of the last four action values: [throttle, brake, steering]
+        action_list = [steering_value1,steering_value2,steering_value3,steering_value4]  
+
+        # minimum distance between current position of the car and the closest middle position of the road
+        min_pos=get_min_pos(self,position_info)
+
+        # Counter for total steps taken in all episodes
+        total_step_counter = 0  # Initialize with 0 at the start of the training.
+
+        # Counter for steps taken in the current episode
+        episode_step_counter = 0  # Initialize with 0 at the start of each episode
+        
+        # distance in meters from the closest object from the front view of a car. Has -1 value if there is no object in front
+        distance = -1
+
+    def get_orientation(self, position_info):
+        quaternion = np.array([position_info.orientation.w_val,
+                               position_info.orientation.x_val,
+                               position_info.orientation.y_val,
+                               position_info.orientation.z_val])
+        euler_angles = R.from_quat(quaternion).as_euler('zyx', degrees=True)
+        return euler_angles[0], euler_angles[1]
+
+    def get_min_pos (self,position_info):
+        for i in data: # data is a  list contaitning all recorded positions of the middle points of the road
+            counter_pos=counter_pos+1
+            stx=i[0]
+            sty=i[1]
+            dis=eucl_dis(stx,sty,curr_x,curr_y)
+            if(dis<min_dis):
+                min_dis=dis
+        return min_dis
+
+    def calculate_front_distance(self):
+        distance_data = self.client.getDistanceSensorData(vehicle_name="Car")
+        distance = distance_data.distance
+        if abs(distance - 20) <= 1.5:
+            return -1  # Interpret this as no object being present in front
+        else:
+            return distance  # Return the actual distance to the closest object in front
