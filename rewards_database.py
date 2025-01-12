@@ -267,10 +267,6 @@ class RevolveDatabase:
         )
         # each sample in 'in_context_samples' is a tuple of (fn_path: str, fitness_score: float)
         logging.info(f"{operator.capitalize()} | sampled island: {sampled_island_id}")
-        reward_history_files = list(
-            np.array(sampled_island.reward_history_paths)[in_context_sample_ids]
-        )
-
         return in_context_samples, sampled_island_id, operator
 
     @staticmethod

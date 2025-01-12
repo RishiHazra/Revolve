@@ -149,6 +149,7 @@ def main(cfg):
                 ) = rewards_database.sample_in_context(
                     cfg.few_shot, temperature
                 )  # weighted sampling of islands and corresponding individuals
+                operator = f'{operator}_auto' if 'auto' in cfg.evolution.baseline else operator
                 operator_prompt = prompts.types[operator]
 
             island_ids.append(island_id)
