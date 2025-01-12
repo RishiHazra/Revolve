@@ -173,7 +173,7 @@ def main(cfg):
                         counter_id,
                         island_id,
                         cfg.evolution.baseline,
-                        reward_fn_dir,
+                        cfg.database.rewards_dir,
                     )
                 )
                 rew_fn_strings.append(rew_func_str)
