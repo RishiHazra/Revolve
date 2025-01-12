@@ -1,191 +1,349 @@
+import os
 import random
 import sys
-from operator import itemgetter
 from typing import Tuple, List, Dict
 
 import numpy as np
 from absl import logging
 
-from evolutionary_utils.entities import Group, Population
+from evolutionary_utils.entities import Island
 
 
-def normalized(x):
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+def normalized(x: List[float], temp: float = 1):
+    x = np.array(x)
+    return np.exp(x / temp) / np.sum(np.exp(x / temp), axis=0)
 
 
-class RewardsDatabase:
+class RevolveDatabase:
     """
     Adapted from Fun Search: https://github.com/google-deepmind/funsearch/blob/main
     """
 
-    def __init__(self, num_groups: int, max_size: int, crossover_prob: float,
-                 model_name: str, load_groups: bool, baseline: str):
-        self.num_groups = num_groups  # starting with num_groups, does not increase with crossover
+    def __init__(
+        self,
+        num_islands: int,
+        max_size: int,
+        crossover_prob: float,
+        migration_prob: float,
+        load_islands: bool,
+        reward_fn_dir: str,
+        baseline: str,
+    ):
+        self.reward_fn_dir = reward_fn_dir
+        self.num_islands = (
+            num_islands  # starting with num_islands, does not increase with crossover
+        )
         self.max_size = max_size  # max group size
         self.crossover_prob = crossover_prob
-        self.model_name = model_name
+        self.migration_prob = migration_prob
+        self.baseline = baseline
 
-        if load_groups:
-            # for it > 0, load stored groups
-            groups = []
-            best_scores = []
-            # actual_num_groups = len(os.listdir(os.path.join(os.environ['ROOT_PATH'],
-            #                                                 f"database/{model_name}")))
-            # for group_id in range(actual_num_groups):
-            for group_id in range(self.num_groups):
-                groups.append(Group.load_group(group_id, model_name, baseline))
-                if len(groups[-1].reward_fn_paths) == 0:
-                    best_scores.append(-sys.maxsize - 1)
-                else:
-                    best_scores.append(max(groups[-1].fitness_scores))
-            self._groups = groups
-            self._best_score_per_group = best_scores
-            # self._best_reward_per_group = [None] * self.num_groups  # stores best reward fn in each group
+        self._islands: List[Island] = []
+        if load_islands:
+            # for it > 0, load stored islands
+            for island_id in range(self.num_islands):
+                loaded_island = Island.load_island(
+                    self.reward_fn_dir, self.baseline, island_id
+                )
+                self._islands.append(loaded_island)
         else:
             # Initialize empty islands.
-            self._groups = [Group([], [], 0) for _ in range(self.num_groups)]
-            self._best_score_per_group: List[float] = [-sys.maxsize - 1] * self.num_groups
+            self._islands = [
+                Island(island_id, [], [], [], [], [], self.heuristic_dir)
+                for island_id in range(self.num_islands)
+            ]
 
-    def add_reward_to_group(self, reward_fn_path: List[str],
-                            fitness_scores: List[float], group_ids: List[int]):
-        for rew_fn_path, fitness_score, group_id in zip(reward_fn_path, fitness_scores, group_ids):
+    def seed_islands(
+        self,
+        generation_ids: List[int],
+        counter_ids: List[int],
+        rew_fn_strings: List[str],
+        fitness_scores: List[float],
+        metrics_dicts: List[dict],
+        island_ids: List[int],
+    ):
+        """
+        for initialization step (generation_id = 0)
+        all individuals are added
+        """
+        for (
+            generation_id,
+            counter_id,
+            rew_fn_string,
+            fitness_score,
+            metrics_dict,
+            island_id,
+        ) in zip(
+            generation_ids,
+            counter_ids,
+            rew_fn_strings,
+            fitness_scores,
+            island_ids,
+            metrics_dicts,
+        ):
+            self._islands[island_id].register_individual_in_island(
+                generation_id, counter_id, rew_fn_string, fitness_score, metrics_dict
+            )
+
+    def add_individuals_to_islands(
+        self,
+        generation_ids: List[int],
+        counter_ids: List[int],
+        rew_fn_strings: List[str],
+        fitness_scores: List[float],
+        metrics_dicts: List[dict],
+        island_ids: List[int],
+    ):
+        for (
+            generation_id,
+            counter_id,
+            rew_fn_string,
+            fitness_score,
+            island_id,
+            metrics_dict,
+        ) in zip(
+            generation_ids,
+            counter_ids,
+            rew_fn_strings,
+            fitness_scores,
+            island_ids,
+            metrics_dicts,
+        ):
             # corner case: if group is not empty, calculate average fitness score
-            if self._groups[group_id].size != 0:
-                group_avg_fitness_score = np.array(self._groups[group_id].fitness_scores).mean()
+            if self._islands[island_id].size != 0:
+                island_avg_fitness_score = self._islands[
+                    island_id
+                ].average_fitness_score
             else:
-                group_avg_fitness_score = -sys.maxsize - 1
+                island_avg_fitness_score = -sys.maxsize - 1
+            # for initial generations, add everything
             # check if reward is adding any value to the group
-            if fitness_score > group_avg_fitness_score:
-                self._groups[group_id].register_reward_fn(rew_fn_path, fitness_score)
-                # self._best_reward_per_group[group_id] = rew_fn_path
-                # self._best_scores_per_test_per_group[group_id] = scores_per_test
-                self._best_score_per_group[group_id] = fitness_score
-                logging.info('Average score of group %d increased to %s', group_id,
-                             np.array(self._groups[group_id].fitness_scores).mean())
+            if fitness_score >= island_avg_fitness_score:
+                self._islands[island_id].register_individual_in_island(
+                    generation_id,
+                    counter_id,
+                    rew_fn_string,
+                    fitness_score,
+                    metrics_dict,
+                )
+                logging.info(
+                    "Average score of island %d increased to %s",
+                    island_id,
+                    self._islands[island_id].average_fitness_score,
+                )
             else:
-                # delete the stored rewards txt, models, json
-                logging.info('Fitness score %s for group %d lower than average group reward %s, discarding',
-                             fitness_score, group_id, group_avg_fitness_score)
-                Group.remove_files(rew_fn_path)
+                # delete the stored individual txt, models, json
+                logging.info(
+                    "Fitness score %s for individual lower than average "
+                    "Island %d fitness %s, discarding",
+                    fitness_score,
+                    island_id,
+                    island_avg_fitness_score,
+                )
+                # remove checkpoint and reward history (added during training)
+                reward_history_path = (
+                    f"{self.reward_fn_dir}/island_{island_id}/reward_history/"
+                    f"{generation_id}_{counter_id}.json"
+                )
+                model_checkpoint_path = (
+                    f"{self.reward_fn_dir}/island_{island_id}/model_checkpoints/"
+                    f"{generation_id}_{counter_id}.h5"
+                )
+                RevolveDatabase.delete_file(
+                    reward_history_path, "reward history (.json) file"
+                )
+                RevolveDatabase.delete_file(
+                    model_checkpoint_path, "model checkpoint (.h5) file"
+                )
 
-            # if group size exceeds max size, discard reward with the lowest score
-            if self._groups[group_id].size > self.max_size:
-                logging.info('Exceeded maximum size in group %d, '
-                             'discarding reward with lowest score', group_id)
-                while self._groups[group_id].size > self.max_size:
-                    self._groups[group_id].remove_lowest()
+            # if island size exceeds max size, discard individual with the lowest score
+            if self._islands[island_id].size > self.max_size:
+                logging.info(
+                    "Exceeded maximum size on island %d, "
+                    "discarding individual with lowest score",
+                    island_id,
+                )
+                while self._islands[island_id].size > self.max_size:
+                    self._islands[island_id].remove_lowest()
 
-        # happens at the end of each iteration
-        # reset_prob = (len(self._groups) - self.num_groups) / self.num_groups
-        if random.random() > 0.8:
-            self.reset_groups()
+        # repeats at the end of each generation
+        # reset_prob = (len(self._islands) - self.num_islands) / self.num_islands
+        if random.random() <= self.migration_prob and len(self._islands) > 1:
+            self.reset_islands()
 
-    def reset_groups(self):
-        """Resets the weaker half of groups."""
+    def reset_islands(self):
+        """
+        Resets the weaker half of islands and seeds them
+        with individuals migrated from fitter islands
+        """
+        print("============ Resetting Island ============")
         # sort best scores after adding minor noise to break ties.
-        indices_sorted_by_score = np.argsort(self._best_score_per_group +
-                                             np.random.randn(len(self._best_score_per_group)) * 1e-6)
-        num_groups_to_reset = len(self._groups) // 2
-        reset_groups_ids = indices_sorted_by_score[:num_groups_to_reset]
-        keep_groups_ids = indices_sorted_by_score[num_groups_to_reset:]
-        for group_id in reset_groups_ids:
-            # discard the group members
-            group_rew_filenames = self._groups[group_id].reward_fn_paths
-            self._groups[group_id] = Group([], [], 0)
-            self._best_score_per_group[group_id] = -sys.maxsize - 1
-            # delete associated files
-            for rew_filename in group_rew_filenames:
-                Group.remove_files(rew_filename)
-            # founder group to initialize/seed the empty group with
-            founder_group_id = np.random.choice(keep_groups_ids)
-            # the best member from the founder group is used to seed the reset group
-            founder_rew_id = np.argmax(self._groups[founder_group_id].fitness_scores)
-            founder_rew_fn_path = self._groups[founder_group_id].reward_fn_paths[founder_rew_id]
-            founder_fitness_score = self._groups[founder_group_id].fitness_scores[founder_rew_id]
-            # register the new (seed) member of the reset group and
-            # copy/migrate the relevant files from founder group to the reset group
-            self._groups[group_id].migrate_reward_fn(founder_rew_fn_path, founder_fitness_score,
-                                                     founder_group_id, group_id)
+        indices_sorted_by_score = np.argsort(
+            np.array([island.best_fitness_score for island in self._islands])
+            + np.random.randn(len(self._islands)) * 1e-6
+        )
+        num_islands_to_reset = len(self._islands) // 2
+        reset_islands_ids = indices_sorted_by_score[:num_islands_to_reset]
+        keep_islands_ids = indices_sorted_by_score[num_islands_to_reset:]
+        for reset_island_id in reset_islands_ids:
+            # delete associated files while retaining only the fittest
+            self._islands[reset_island_id].only_keep_best()
+            # founder island to migrate to the empty island with
+            # the size of founder island must be > 1
+            founder_island_id = np.random.choice(keep_islands_ids)
+            founder_island = self._islands[founder_island_id]
+            repeats = 0  # to halt the while loop
+            while founder_island.size <= 1:
+                founder_island_id = np.random.choice(keep_islands_ids)
+                founder_island = self._islands[founder_island_id]
+                repeats += 1
+                if repeats >= 10:
+                    break
+            if repeats >= 10:
+                # if the while loop has exceeded a certain number of tries, skip
+                continue
+            # sample an individual from the founder island (NOT the best)
+            founder_individual = founder_island.fittest_individual
+            while founder_individual == founder_island.fittest_individual:
+                founder_individual = random.choices(
+                    founder_island.individuals,
+                    normalized(founder_island.fitness_scores),
+                )[0]
+            # register the new (seed) member of the reset island and
+            # copy/migrate the relevant files from founder island to the reset_island_id
+            logging.info(
+                f"Migrating individual from Island {founder_island_id} to Island {reset_island_id}"
+            )
+            self._islands[reset_island_id].migrate_fn(founder_individual)
+            # remove the founder_individual from the founder island
+            self._islands[founder_island_id].remove_individual(founder_individual)
 
-    def sample_in_context(self, num_samples: Dict) -> Tuple[List[Tuple[str, float]], int, str]:
-        # returns a tuple of sampled reward_fns and its corresponding group
-        # for crossover: create new group, for mutation: return sampled group id
-        operator = None
-        # selecting the groups to mutate/crossover based on average fitness score
-        # this ensures that the groups explore + exploit
-        average_fitness_scores = normalized([np.array(self._groups[group_id].fitness_scores).mean()
-                                             for group_id in range(self.num_groups)])
+    def sample_in_context(
+        self, num_samples: Dict, temperature: float
+    ) -> Tuple[List[Tuple[str, float]], int, str]:
+        """
+        returns a tuple of sampled generated_fns and its corresponding island
+        selecting the islands to mutate/crossover based on average fitness score
+        this ensures that the islands explore + exploit
+        """
+        # sample uniformly in the first k generations (for better exploration)
+        average_fitness_scores = normalized(
+            [
+                self._islands[island_id].average_fitness_score
+                for island_id in range(self.num_islands)
+            ],
+            temperature,
+        )
 
-        if random.random() >= self.crossover_prob:
-            # making mutation more likely leading to utilizing current groups
-            # first sample a group
-            print(f'\nMutation\n: num groups: {len(self._groups)}')
-            sampled_group_id, sampled_group = random.choices(list(enumerate(self._groups)),
-                                                             weights=average_fitness_scores)[0]
-            # then sample without replacement num_samples reward fns
-            in_context_sample_ids = np.random.choice(range(len(sampled_group.reward_fn_paths)),
-                                                     p=normalized(sampled_group.fitness_scores),
-                                                     size=num_samples['mutation'], replace=False)
-            in_context_samples = list(zip(np.array(sampled_group.reward_fn_paths)[in_context_sample_ids],
-                                          np.array(sampled_group.fitness_scores)[in_context_sample_ids]))
-            operator = 'mutation'
+        # make mutation more likely leading to utilizing current islands
+        operator = "mutation" if random.random() >= self.crossover_prob else "crossover"
+        num_in_context_samples = (
+            num_samples["mutation"]
+            if operator == "mutation"
+            else num_samples["crossover"]
+        )
+
+        # STEP 1: sample an island
+        # corner case: for crossover, the island size must be >= 2
+        size_of_sample_island = 0
+        # TODO: getting trapped in the while loop in the initial phases
+        while size_of_sample_island < num_in_context_samples:
+            sampled_island_id, sampled_island = random.choices(
+                list(enumerate(self._islands)), weights=average_fitness_scores
+            )[0]
+            size_of_sample_island = sampled_island.size
+        # STEP 2: sample without replacement num_samples generated_fns
+        in_context_sample_ids = np.random.choice(
+            range(sampled_island.size),
+            p=normalized(sampled_island.fitness_scores, temperature),
+            size=num_in_context_samples,
+            replace=False,
+        )
+        in_context_samples = list(
+            zip(
+                np.array(sampled_island.fn_file_paths)[in_context_sample_ids],
+                np.array(sampled_island.fitness_scores)[in_context_sample_ids],
+            )
+        )
+        # each sample in 'in_context_samples' is a tuple of (fn_path: str, fitness_score: float)
+        logging.info(f"{operator.capitalize()} | sampled island: {sampled_island_id}")
+        reward_history_files = list(
+            np.array(sampled_island.reward_history_paths)[in_context_sample_ids]
+        )
+
+        return in_context_samples, sampled_island_id, operator
+
+    @staticmethod
+    def delete_file(filepath: str, filetype: str):
+        if os.path.exists(filepath):
+            logging.info(f"Removing {filetype} from {filepath}.")
+            os.remove(filepath)
         else:
-            # sample num_samples groups without replacement
-            print(f'\nCrossover\n: num groups: {len(self._groups)}')
-            # TODO: handle sampling of empty groups
-            sampled_group_ids = np.random.choice(range(len(self._groups)), replace=False,
-                                                 p=average_fitness_scores,
-                                                 size=num_samples['crossover'])
-            sampled_groups_avg_scores = average_fitness_scores[sampled_group_ids]
-            in_context_samples = []
-            sample_scores = []
-            for ind in sampled_group_ids:
-                sample = random.choices(self._groups[ind].zipped,
-                                        weights=normalized(self._groups[ind].fitness_scores))[0]
-                in_context_samples.append(sample)
-                sample_scores.append(sample[1])
-            # then sample a reward fn str from each group
-            # add the new crossed reward fn to the group with a lower average fitness score
-            from_group_id, to_group_id = sampled_group_ids[np.argmax(sampled_groups_avg_scores)], \
-                sampled_group_ids[np.argmin(sampled_groups_avg_scores)]
-            sampled_group_id = to_group_id
-
-            # if migrate from_group_id to to_group_id
-            # 1. copy the rew fn to the new group; 2. delete from the from_group_id
-            # from_rew_fn_path = in_context_samples[0][0]
-            # self._groups[to_group_id].migrate_reward_fn(from_rew_fn_path,
-            #                                             sample_scores[np.argmax(sampled_groups_avg_scores)],
-            #                                             from_group_id, to_group_id)
-            # Group.remove_files(from_rew_fn_path)
-
-            # self._groups.append(Group([], [], 0))
-            # self._best_score_per_group.append(-sys.maxsize - 1)
-            # self._best_reward_per_group.append(None)
-            # self.num_groups += 1
-            operator = 'crossover'
-        # each sample in 'in_context_samples' is a tuple of (reward_fn_path: str, fitness_score: float)
-        return in_context_samples, sampled_group_id, operator
+            logging.info(f"{filetype} does not exist in {filepath}.")
 
 
 class EurekaDatabase:
-    def __init__(self, model_name: str, load_population: bool, baseline: str):
-        # self.population_size = population_size
-        self.model_name = model_name
+    def __init__(
+        self,
+        num_islands,
+        max_size,
+        load_islands: bool,
+        reward_fn_dir: str,
+        baseline: str,
+    ):
+        assert num_islands == 1, "Eureka baseline is only for single island."
 
-        if load_population:
-            # for it > 0, load stored population
-            self._population = Population.load_population(model_name, baseline)
+        self.reward_fn_dir = reward_fn_dir
+        self.baseline = baseline
+
+        self._islands: List[Island] = []
+        if load_islands:
+            # for it > 0, load stored islands
+            self._islands = [Island.load_island(self.reward_fn_dir, self.baseline, 0)]
         else:
-            # Initialize empty population
-            self._population = Population([], [], None)
+            # Initialize empty islands.
+            self._islands = [Island(0, [], [], [], [], [], self.reward_fn_dir)]
 
-    def update_rewards(self, reward_fn_path: List[str], fitness_scores: List[float]):
-        for rew_fn_path, fitness_score in zip(reward_fn_path, fitness_scores):
-            self._population.register_reward_fn(rew_fn_path, fitness_score)
+    def add_individuals_to_islands(
+        self,
+        generation_ids: List[int],
+        counter_ids: List[int],
+        rew_fn_strings: List[str],
+        fitness_scores: List[float],
+        metrics_dicts: List[dict],
+        island_ids: List[int],
+    ):
+        """
+        For Eureka, we only retain all individuals to maintain consistency with REvolve.
+        For sampling in the next generation, only the best individual from all previous generations is used.
+        """
+        for (
+            generation_id,
+            counter_id,
+            rew_fn_string,
+            fitness_score,
+            island_id,
+            metrics_dict,
+        ) in zip(
+            generation_ids,
+            counter_ids,
+            rew_fn_strings,
+            fitness_scores,
+            island_ids,
+            metrics_dicts,
+        ):
+            self._islands[0].register_individual_in_island(
+                generation_id,
+                counter_id,
+                rew_fn_string,
+                fitness_score,
+                metrics_dict,
+            )
 
-    def sample_in_context(self) -> List[Tuple[str, float]]:
-        # TODO: For in-context learning, eureka picks the best sample from the last generation
-        in_context_sample = []
-        last_gen = self._population.last_generation
-        in_context_sample.append(max(last_gen, key=itemgetter(1)))
-        return in_context_sample
+    def sample_in_context(self) -> Tuple[List[Tuple[str, float]], int, str]:
+        in_context_samples = []
+        fittest_individual = self._islands[0].fittest_individual
+        in_context_samples.append(
+            (fittest_individual.fn_file_path, fittest_individual.fitness_score)
+        )
+        return in_context_samples, 0, "mutation"

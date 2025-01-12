@@ -96,7 +96,6 @@ class PrioritizedReplayBuffer:
         self.real_size = min(self.size, self.real_size + 1)
 
     def sample(self, batch_size):
-
         sample_idxs, tree_idxs = [], []
         priorities = np.empty((batch_size, 1), dtype=np.float16)
 
@@ -131,12 +130,11 @@ class PrioritizedReplayBuffer:
             self.next_state[sample_idxs],
             self.done[sample_idxs],
             self.state2[sample_idxs],
-            self.next_state2[sample_idxs]
+            self.next_state2[sample_idxs],
         )
         return batch, weights, tree_idxs
 
     def update_priorities(self, data_idxs, priorities):
-
         for data_idx, priority in zip(data_idxs, priorities):
             # The first variant we consider is the direct, proportional prioritization where p_i = |δ_i| + eps,
             # where eps is a small positive constant that prevents the edge-case of transitions not being

@@ -6,15 +6,17 @@ pip install -r requirements
 ```
 For AirSim, follow the instruction on this link [https://microsoft.github.io/AirSim/build_linux/](AirSim)
 
+```shell
+$ export ROOT_PATH='Revolve'
+$ export AIRSIM_PATH='AirSim'
+$ export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
+$ export OPENAI_API_KEY=''
+
+```
+
 ## Run
 ```shell
-python revolve.py  # for running REvolve
-
-python eureka.py   # for Eureka baseline
-
-python revolve_auto.py  # for REvolve Auto (with automatic feedback)
-
-python eureka_auto.py  # Eureka Auto (Eureka with automatic feedback); set num_generate=1 in main() for Text2Rewards (T2R)  
+python main.py  # for running REvolve
 ```
 
 ## Other Utilities

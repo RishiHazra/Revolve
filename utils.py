@@ -1,5 +1,9 @@
 import inspect
 import os
+import random
+import math
+import fcntl
+from copy import copy, deepcopy
 from collections import Counter
 from typing import Optional, Callable, List, Tuple, Dict
 
@@ -7,10 +11,20 @@ import numpy as np
 import tensorflow as tf
 
 
-# def read_reward_from_file(file_path: str) -> str:
-#     with open(file_path, "r") as infile:
-#         return infile.read()
-def define_function_from_string(function_string: str) -> Tuple[Optional[Callable], List[str]]:
+class DataLogger:
+    def __init__(self, log_file_path: str):
+        self.log_file_path = log_file_path
+
+    def log(self, data_sample):
+        with open(self.log_file_path, "a", encoding="utf-8") as file:
+            fcntl.flock(file, fcntl.LOCK_EX)
+            file.write(str(data_sample) + "\n")
+            fcntl.flock(file, fcntl.LOCK_UN)
+
+
+def define_function_from_string(
+    function_string: str,
+) -> Tuple[Optional[Callable], List[str]]:
     """
     Takes a string containing a function definition and returns the defined function.
 
@@ -22,13 +36,25 @@ def define_function_from_string(function_string: str) -> Tuple[Optional[Callable
     """
     namespace = {}
     # TODO: add more additional globals?
-    additional_globals = {'tf': tf, 'np': np, 'Tuple': Tuple,
-                          'List': List, 'Callable': Callable,
-                          'Optional': Optional, 'Dict': Dict}
+    additional_globals = {
+        "math": math,
+        "tf": tf,
+        "np": np,
+        "Tuple": Tuple,
+        "List": List,
+        "Callable": Callable,
+        "Optional": Optional,
+        "Dict": Dict,
+        "copy": copy,
+        "deepcopy": deepcopy,
+        "random": random,
+    }
     namespace.update(additional_globals)
     exec(function_string, namespace)
     # TODO: change 'compute_reward' to some other identifier
-    function = next((value for key, value in namespace.items() if key == 'compute_reward'), None)
+    function = next(
+        (value for key, value in namespace.items() if key == "compute_reward"), None
+    )
     args = inspect.getfullargspec(function).args if function else []
     return function, args
 
@@ -41,11 +67,13 @@ def fix_indentation(code, spaces_per_indent=2):
     :param spaces_per_indent: Number of spaces per indent level. Default is 4.
     :return: String with corrected indentation.
     """
-    lines = code.split('\n')
+    lines = code.split("\n")
     fixed_lines = []
 
     # find if most indents have 4 spaces or 8
-    num_spaces = Counter([len(line) - len(line.lstrip()) for line in lines]).most_common()[0][0]
+    num_spaces = Counter(
+        [len(line) - len(line.lstrip()) for line in lines]
+    ).most_common()[0][0]
     if num_spaces == 4:
         return code
     elif num_spaces == 8:
@@ -58,11 +86,11 @@ def fix_indentation(code, spaces_per_indent=2):
         # Calculate the correct number of leading spaces
         corrected_leading_spaces = leading_spaces // spaces_per_indent
         # Reconstruct the line with fixed indentation
-        fixed_line = ' ' * corrected_leading_spaces + stripped_line
+        fixed_line = " " * corrected_leading_spaces + stripped_line
         fixed_lines.append(fixed_line)
 
     # Join the fixed lines back into a single string
-    fixed_code = '\n'.join(fixed_lines)
+    fixed_code = "\n".join(fixed_lines)
     return fixed_code
 
 
@@ -88,7 +116,12 @@ def parse_llm_output(raw_llm_output: str) -> str:
         # avoiding Syntax error by discarding comments under """..."""
         if '"""' in line:
             if not triple_quotes:
-                triple_quotes = np.max([True if '"""' in next_line else False for next_line in lines[line_idx:]])
+                triple_quotes = np.max(
+                    [
+                        True if '"""' in next_line else False
+                        for next_line in lines[line_idx:]
+                    ]
+                )
             else:
                 triple_quotes = False
             continue
@@ -98,12 +131,16 @@ def parse_llm_output(raw_llm_output: str) -> str:
         # If we are currently parsing the function, append the line to the function string
         if parsing:
             # removing incorrect indent (gpt-4 sometimes adds incorrect indents leading to Indentation errors)
-            if 'def compute_reward' in line:
+            if "def compute_reward" in line:
                 line = line.strip()
 
             parsed_llm_out += line + "\n"
-            # If the line contains a return statement, note that we found the return
-            if "return" in line:
+            # If the line contains a return statement, and this is not the final return
+            # TODO: get the final return statement
+            if "return" in line and (
+                "```" in lines[line_idx : line_idx + 3]
+                or "'''" in lines[line_idx : line_idx + 3]
+            ):
                 return_found = True
 
         # If we have found the return statement and reach a line that could indicate
@@ -115,29 +152,51 @@ def parse_llm_output(raw_llm_output: str) -> str:
     return parsed_llm_out
 
 
-def save_reward_string(rew_func_str: str, model_name: str, group_id: int,
-                       it: int, counter: int, baseline: str) -> str:
-    print(f"\nSaving Reward String for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n")
-    rewards_save_path = os.path.join(os.environ['ROOT_PATH'],
-                                     f'{baseline}_database/{model_name}/group_{group_id}/reward_fns')
+def save_reward_string(
+    rew_func_str: str,
+    model_name: str,
+    group_id: int,
+    it: int,
+    counter: int,
+    baseline: str,
+) -> str:
+    print(
+        f"\nSaving Reward String for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n"
+    )
+    rewards_save_path = os.path.join(
+        os.environ["ROOT_PATH"],
+        f"{baseline}_database/{model_name}/group_{group_id}/reward_fns",
+    )
     if not os.path.exists(rewards_save_path):
         os.makedirs(rewards_save_path)
-    reward_filename = os.path.join(rewards_save_path, f'{it}_{counter}.txt')
+    reward_filename = os.path.join(rewards_save_path, f"{it}_{counter}.txt")
     with open(reward_filename, "w") as infile:
         infile.write(rew_func_str)
     return reward_filename
 
-def save_reward_string_new_envs(rew_func_str: str, model_name: str, group_id: int,
-                       it: int, counter: int, baseline: str, task_code_string: str,
-                                args: List[str]) -> str:
-    print(f"\nSaving Reward String for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n")
-    rewards_save_path = os.path.join(os.environ['ROOT_PATH'],
-                                     f'{baseline}_database/{model_name}/group_{group_id}/reward_fns')
+
+def save_reward_string_new_envs(
+    rew_func_str: str,
+    model_name: str,
+    group_id: int,
+    it: int,
+    counter: int,
+    baseline: str,
+    task_code_string: str,
+    args: List[str],
+) -> str:
+    print(
+        f"\nSaving Reward String for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n"
+    )
+    rewards_save_path = os.path.join(
+        os.environ["ROOT_PATH"],
+        f"{baseline}_database/{model_name}/group_{group_id}/reward_fns",
+    )
     if not os.path.exists(rewards_save_path):
         os.makedirs(rewards_save_path)
-    reward_filename = os.path.join(rewards_save_path, f'{it}_{counter}.txt')
+    reward_filename = os.path.join(rewards_save_path, f"{it}_{counter}.txt")
 
-    gpt_reward_signature = 'compute_reward' + '(self.' + ', self.'.join(args) + ')'
+    gpt_reward_signature = "compute_reward" + "(self." + ", self.".join(args) + ")"
     reward_signature = [
         f"self.rew_buf[:], self.rew_dict = {gpt_reward_signature}",
         f"self.extras['gpt_reward'] = self.rew_buf.mean()",
@@ -146,42 +205,48 @@ def save_reward_string_new_envs(rew_func_str: str, model_name: str, group_id: in
     indent = " " * 8
     reward_signature = "\n".join([indent + line for line in reward_signature])
     if "def compute_reward(self)" in task_code_string:
-        task_code_string_iter = task_code_string.replace("def compute_reward(self):",
-                                                         "def compute_reward(self):\n" + reward_signature)
+        task_code_string_iter = task_code_string.replace(
+            "def compute_reward(self):",
+            "def compute_reward(self):\n" + reward_signature,
+        )
     elif "def compute_reward(self, actions)" in task_code_string:
-        task_code_string_iter = task_code_string.replace("def compute_reward(self, actions):",
-                                                         "def compute_reward(self, actions):\n" + reward_signature)
+        task_code_string_iter = task_code_string.replace(
+            "def compute_reward(self, actions):",
+            "def compute_reward(self, actions):\n" + reward_signature,
+        )
     else:
         raise NotImplementedError
 
     with open(reward_filename, "w") as infile:
-        infile.writelines(task_code_string_iter + '\n')
-        infile.writelines("from typing import Tuple, Dict" + '\n')
-        infile.writelines("import math" + '\n')
-        infile.writelines("import torch" + '\n')
-        infile.writelines("from torch import Tensor" + '\n')
+        infile.writelines(task_code_string_iter + "\n")
+        infile.writelines("from typing import Tuple, Dict" + "\n")
+        infile.writelines("import math" + "\n")
+        infile.writelines("import torch" + "\n")
+        infile.writelines("from torch import Tensor" + "\n")
         if "@torch.jit.script" not in rew_func_str:
             code_string = "@torch.jit.script\n" + rew_func_str
-        infile.writelines(code_string + '\n')
+        infile.writelines(code_string + "\n")
         # infile.write(rew_func_str)
     return reward_filename
 
+
 def filter_traceback(s):
-    lines = s.split('\n')
+    lines = s.split("\n")
     filtered_lines = []
     for i, line in enumerate(lines):
-        if line.startswith('Traceback'):
+        if line.startswith("Traceback"):
             for j in range(i, len(lines)):
                 if "Set the environment variable HYDRA_FULL_ERROR=1" in lines[j]:
                     break
                 filtered_lines.append(lines[j])
-            return '\n'.join(filtered_lines)
-    return ''  # Return an empty string if no Traceback is found
+            return "\n".join(filtered_lines)
+    return ""  # Return an empty string if no Traceback is found
+
 
 def block_until_training(rl_filepath, log_status=False, iter_num=-1, response_id=-1):
     # Ensure that the RL training has started before moving on
     while True:
-        rl_log = open(rl_filepath, 'r').read()
+        rl_log = open(rl_filepath, "r").read()
         if "fps step:" in rl_log or "Traceback" in rl_log:
             # if log_status and "fps step:" in rl_log:
             #     logging.info(f"Iteration {iter_num}: Code Run {response_id} successfully training!")
@@ -190,65 +255,116 @@ def block_until_training(rl_filepath, log_status=False, iter_num=-1, response_id
             break
 
 
-def save_fitness_score(fitness_score: float, model_name: str, group_id: int,
-                       it: int, counter: int, baseline: str) -> str:
-    print(f"\nSaving Fitness Score for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n")
-    if 'auto' not in baseline:
-        fitness_scores_str = 'fitness_scores'
-    elif 'auto' in baseline:
-        fitness_scores_str = 'fitness_scores_auto'
-    fitness_score_save_path = os.path.join(os.environ['ROOT_PATH'],
-                                           f'{baseline}_database/{model_name}/group_{group_id}/{fitness_scores_str}')
+def save_fitness_score(
+    fitness_score: float,
+    model_name: str,
+    group_id: int,
+    it: int,
+    counter: int,
+    baseline: str,
+) -> str:
+    print(
+        f"\nSaving Fitness Score for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n"
+    )
+    if "auto" not in baseline:
+        fitness_scores_str = "fitness_scores"
+    elif "auto" in baseline:
+        fitness_scores_str = "fitness_scores_auto"
+    fitness_score_save_path = os.path.join(
+        os.environ["ROOT_PATH"],
+        f"{baseline}_database/{model_name}/group_{group_id}/{fitness_scores_str}",
+    )
     if not os.path.exists(fitness_score_save_path):
         os.makedirs(fitness_score_save_path)
-    score_filename = os.path.join(fitness_score_save_path, f'{it}_{counter}.txt')
+    score_filename = os.path.join(fitness_score_save_path, f"{it}_{counter}.txt")
     with open(score_filename, "w") as infile:
         infile.write(str(fitness_score))
     return score_filename
 
 
-def save_human_feedback(human_feedback: str, model_name: str, group_id: int,
-                        it: int, counter: int, baseline: str) -> str:
-    print(f"\nSaving Human Feedback for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n")
-    feedback_save_path = os.path.join(os.environ['ROOT_PATH'],
-                                      f'{baseline}_database/{model_name}/group_{group_id}/human_feedback')
+def save_human_feedback(
+    human_feedback: str,
+    model_name: str,
+    group_id: int,
+    it: int,
+    counter: int,
+    baseline: str,
+) -> str:
+    print(
+        f"\nSaving Human Feedback for Model: {model_name} | Iteration: {it} | Generation: {counter}.\n"
+    )
+    feedback_save_path = os.path.join(
+        os.environ["ROOT_PATH"],
+        f"{baseline}_database/{model_name}/group_{group_id}/human_feedback",
+    )
     if not os.path.exists(feedback_save_path):
         os.makedirs(feedback_save_path)
-    feedback_filename = os.path.join(feedback_save_path, f'{it}_{counter}.txt')
+    feedback_filename = os.path.join(feedback_save_path, f"{it}_{counter}.txt")
     with open(feedback_filename, "w") as infile:
         infile.write(human_feedback)
     return feedback_filename
 
 
 def format_human_feedback(human_feedback: str) -> str:
-    pos_feedback, neg_feedback = human_feedback.split('\n')
-    pos_feedback.replace('&&', '&')
-    neg_feedback.replace('&&', '&')
-    final_str = ''
-    if pos_feedback != '':
-        final_str += f'The satisfactory aspects are {pos_feedback}.'
-    if neg_feedback != '':
-        final_str += f'Aspects that need improvement are {neg_feedback}.'
+    pos_feedback, neg_feedback = human_feedback.split("\n")
+    pos_feedback.replace("&&", "&")
+    neg_feedback.replace("&&", "&")
+    final_str = ""
+    if pos_feedback != "":
+        final_str += f"The satisfactory aspects are {pos_feedback}."
+    if neg_feedback != "":
+        final_str += f"Aspects that need improvement are {neg_feedback}."
     return final_str
 
 
 def serialize_dict(dictionary, num_elements=10):
-    ret_str = ''
+    ret_str = ""
     for key, values in dictionary.items():
         if isinstance(values, list) and len(values) > num_elements:
-            step_size = (len(values) - 1) / (num_elements - 1)  # Adjust step_size to include the last element
-            sampled_values = [values[round(i * step_size)] for i in range(num_elements - 1)]
+            step_size = (len(values) - 1) / (
+                num_elements - 1
+            )  # Adjust step_size to include the last element
+            sampled_values = [
+                values[round(i * step_size)] for i in range(num_elements - 1)
+            ]
             sampled_values.append(values[-1])  # Explicitly add the last element
             # Remove potential duplicate if the second last element is the same due to rounding
             sampled_values = list(dict.fromkeys(sampled_values))
-            ret_str += f'{key}: {sampled_values}\n'
+            ret_str += f"{key}: {sampled_values}\n"
         else:
-            ret_str += f'{key}: {values}\n'
+            ret_str += f"{key}: {values}\n"
     return ret_str
 
 
-class InvalidRewardError(Exception):
+class InvalidFunctionError(Exception):
     """Custom Error for reward"""
-    # def __init__(self):
-    #     self.message = "There was an error in the reward"
-    #     super().__init__(self.message)
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
+def validate_callable_no_signature(func_str: str):
+    # Look for "return" statements in the source code
+    return_statements = [
+        line.strip()
+        for line in func_str.splitlines()
+        if line.strip().startswith("return")
+        and len(line.split(",")) == 2  # total reward, reward_components
+    ]
+    return return_statements
+
+
+def linear_decay(
+    iteration: int, initial_temp: float, final_temp: float, num_iterations: int
+):
+    """defines a temperature schedule for sampling of islands and individuals"""
+    return initial_temp - (initial_temp - final_temp) * iteration / num_iterations
+
+
+def cosine_annealing(
+    iteration: int, initial_temp: float, final_temp: float, num_iterations: int
+):
+    """defines a temperature schedule for sampling of islands and individuals"""
+    return final_temp + 0.5 * (initial_temp - final_temp) * (
+        1 + np.cos(np.pi * iteration / num_iterations)
+    )

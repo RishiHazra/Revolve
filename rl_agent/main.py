@@ -11,18 +11,18 @@ from scipy.spatial.transform import Rotation as R
 
 from rl_agent.agent import DrivingAgent
 from rl_agent.buffer import PrioritizedReplayBuffer
-from rl_agent.environment import CustomEnvironment
+from evolutionary_utils.custom_environment import CustomEnvironment
 from utils import define_function_from_string
 
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-gpus = tf.config.experimental.list_physical_devices('GPU')
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+gpus = tf.config.experimental.list_physical_devices("GPU")
 if gpus:
     try:
         tf.config.experimental.set_memory_growth(gpus[0], True)
     except RuntimeError as e:
         print(e)
-path = os.path.join(os.environ['ROOT_PATH'], 'rl_agent/gmaps3.txt')
-data = np.loadtxt(path, delimiter=',')
+path = os.path.join(os.environ["ROOT_PATH"], "rl_agent/gmaps3.txt")
+data = np.loadtxt(path, delimiter=",")
 
 avail_actions = np.arange(-0.8, 0.85, 0.05)
 avail_throttle = np.array([0, 1])
@@ -32,12 +32,15 @@ avail_actions_comb = np.round(combined_array, 2)
 
 
 def append_rewards_as_txt(filename, rewards_history):
-    with open(filename, 'a') as file:  # Open in append mode
+    with open(filename, "a") as file:  # Open in append mode
         for key, values in rewards_history.items():
             line = f"{key}: "  # Start with the key followed by a colon and space
-            line += ', '.join(
-                [str(value) for value in values])  # Convert all list elements to strings and join with commas
-            file.write(line + '\n')  # Write the line to the file and end with a newline character
+            line += ", ".join(
+                [str(value) for value in values]
+            )  # Convert all list elements to strings and join with commas
+            file.write(
+                line + "\n"
+            )  # Write the line to the file and end with a newline character
 
 
 def eucl_dis(x, y, stx, sty):
@@ -52,12 +55,16 @@ def eucl_dis(x, y, stx, sty):
 def get_min_pos(curr_x, curr_y):
     min_dis = 10000
     counter_pos = 0
-    for i in data:  # data is a  list containing all recorded positions of the middle points of the road
+    for (
+        i
+    ) in (
+        data
+    ):  # data is a  list containing all recorded positions of the middle points of the road
         counter_pos = counter_pos + 1
         stx = i[0]
         sty = i[1]
         dis = eucl_dis(stx, sty, curr_x, curr_y)
-        if (dis < min_dis):
+        if dis < min_dis:
             min_dis = dis
     return min_dis
 
@@ -90,31 +97,46 @@ def save_rewards_as_json(filename, rewards_history):
             converted_rewards_history[key] = float(values)
 
     # Save the converted rewards history as a JSON file
-    with open(filename, 'w') as json_file:
+    with open(filename, "w") as json_file:
         json.dump(converted_rewards_history, json_file, indent=4)
 
 
-def run_training(ip_address, reward_func_path, counter_model, iteration, group_id, current_port, llm_model, baseline):
-    base_dir = os.path.join(os.environ['ROOT_PATH'],
-                            f"{baseline}_database/{llm_model}/group_{group_id}/reward_history")
+def run_training(
+    ip_address,
+    reward_func_path,
+    counter_model,
+    iteration,
+    group_id,
+    current_port,
+    llm_model,
+    baseline,
+):
+    base_dir = os.path.join(
+        os.environ["ROOT_PATH"],
+        f"{baseline}_database/{llm_model}/group_{group_id}/reward_history",
+    )
     os.makedirs(base_dir, exist_ok=True)
 
     agentoo7 = DrivingAgent(counter_model, iteration, group_id, llm_model, baseline)
     # def __init__(self, no_model, iteration, group_id):
 
-    reward_func_str = open(reward_func_path, 'r').read()
+    reward_func_str = open(reward_func_path, "r").read()
     reward_func, _ = define_function_from_string(reward_func_str)
 
     filename_suffix = f"{iteration}_{counter_model}"
     rewards_history_filename = os.path.join(base_dir, f"{filename_suffix}.json")
-    episodic_steps_filename = os.path.join(base_dir, f"episodic_steps_{filename_suffix}.txt")
-    total_rewards_filename = os.path.join(base_dir, f"total_rewards_filename_{filename_suffix}.txt")
+    episodic_steps_filename = os.path.join(
+        base_dir, f"episodic_steps_{filename_suffix}.txt"
+    )
+    total_rewards_filename = os.path.join(
+        base_dir, f"total_rewards_filename_{filename_suffix}.txt"
+    )
     env_state = CustomEnvironment().env_state
     client = airsim.CarClient(ip=ip_address, port=current_port)
     # print("trying to connect on ip, port",ip_address, current_port)
 
     client.confirmConnection()
-    print('Connected on ip', ip_address)
+    print("Connected on ip", ip_address)
     client.enableApiControl(True)
     client.reset()
     car_controls = airsim.CarControls()
@@ -140,16 +162,24 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
         client.reset()
         done = 0
 
-        orientation_scenario = random.choice(['straight', '90_left', '90_right', '180_behind'])
+        orientation_scenario = random.choice(
+            ["straight", "90_left", "90_right", "180_behind"]
+        )
         car_pose = client.simGetVehiclePose()
-        orientation_scenario = '180_behind'
+        orientation_scenario = "180_behind"
 
-        if orientation_scenario == '90_left':
-            car_pose.orientation = airsim.to_quaternion(0, 0, np.radians(-90))  # Yaw 90 degrees to the left
-        elif orientation_scenario == '90_right':
-            car_pose.orientation = airsim.to_quaternion(0, 0, np.radians(90))  # Yaw 90 degrees to the right
-        elif orientation_scenario == '180_behind':
-            car_pose.orientation = airsim.to_quaternion(0, 0, np.radians(185))  # Yaw 180 degrees
+        if orientation_scenario == "90_left":
+            car_pose.orientation = airsim.to_quaternion(
+                0, 0, np.radians(-90)
+            )  # Yaw 90 degrees to the left
+        elif orientation_scenario == "90_right":
+            car_pose.orientation = airsim.to_quaternion(
+                0, 0, np.radians(90)
+            )  # Yaw 90 degrees to the right
+        elif orientation_scenario == "180_behind":
+            car_pose.orientation = airsim.to_quaternion(
+                0, 0, np.radians(185)
+            )  # Yaw 180 degrees
 
         client.simSetVehiclePose(car_pose, True)
         car_controls.throttle = 1
@@ -159,7 +189,9 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
 
         car_controls.steering = 0
         client.setCarControls(car_controls)
-        image_response = client.simGetImages([airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])[0]
+        image_response = client.simGetImages(
+            [airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)]
+        )[0]
         image1d = np.frombuffer(image_response.image_data_uint8, dtype=np.uint8)
         image_rgb = image1d.reshape(image_response.height, image_response.width, 3)
 
@@ -177,8 +209,10 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
 
         position_info = client.getCarState()
         orientation = position_info.kinematics_estimated.orientation
-        quaternion = np.array([orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val])
-        euler_angles = R.from_quat(quaternion).as_euler('zyx', degrees=True)
+        quaternion = np.array(
+            [orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val]
+        )
+        euler_angles = R.from_quat(quaternion).as_euler("zyx", degrees=True)
         linear_velocity = position_info.kinematics_estimated.linear_velocity
         vx, vy = linear_velocity.x_val, linear_velocity.y_val
         speed = float("{:.2f}".format(position_info.speed))
@@ -207,7 +241,10 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
             #   client.simPause(True)
             action = agentoo7.act(state, state2)
             #  client.simPause(False)
-            steering, throttle = avail_actions_comb[action][0], avail_actions_comb[action][1]
+            steering, throttle = (
+                avail_actions_comb[action][0],
+                avail_actions_comb[action][1],
+            )
 
             # steering = avail_actions[action]
 
@@ -217,14 +254,18 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
             # car_controls.throttle = throttle
 
             client.setCarControls(car_controls)
-            image_response = \
-                client.simGetImages([airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])[0]
-            image_response = \
-                client.simGetImages([airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])[0]
-            image_response = \
-                client.simGetImages([airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])[0]
-            image_response = \
-                client.simGetImages([airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)])[0]
+            image_response = client.simGetImages(
+                [airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)]
+            )[0]
+            image_response = client.simGetImages(
+                [airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)]
+            )[0]
+            image_response = client.simGetImages(
+                [airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)]
+            )[0]
+            image_response = client.simGetImages(
+                [airsim.ImageRequest("0", airsim.ImageType.Scene, False, False)]
+            )[0]
 
             image1d = np.frombuffer(image_response.image_data_uint8, dtype=np.uint8)
             image_rgb = image1d.reshape(image_response.height, image_response.width, 3)
@@ -244,45 +285,68 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
             position_info = client.getCarState()
             collision_info = client.simGetCollisionInfo()
             orientation = position_info.kinematics_estimated.orientation
-            quaternion = np.array([orientation.w_val, orientation.x_val, orientation.y_val, orientation.z_val])
-            euler_angles = R.from_quat(quaternion).as_euler('zyx', degrees=True)
+            quaternion = np.array(
+                [
+                    orientation.w_val,
+                    orientation.x_val,
+                    orientation.y_val,
+                    orientation.z_val,
+                ]
+            )
+            euler_angles = R.from_quat(quaternion).as_euler("zyx", degrees=True)
             linear_velocity = position_info.kinematics_estimated.linear_velocity
             vx, vy = linear_velocity.x_val, linear_velocity.y_val
             speed = float("{:.2f}".format(position_info.speed))
-            angular_velocity_x, angular_velocity_y, angular_velocity_z = position_info.kinematics_estimated.angular_velocity.x_val, position_info.kinematics_estimated.angular_velocity.y_val, position_info.kinematics_estimated.angular_velocity.z_val
+            angular_velocity_x, angular_velocity_y, angular_velocity_z = (
+                position_info.kinematics_estimated.angular_velocity.x_val,
+                position_info.kinematics_estimated.angular_velocity.y_val,
+                position_info.kinematics_estimated.angular_velocity.z_val,
+            )
             distance_data = client.getDistanceSensorData(vehicle_name="Car")
-            distance = distance_data.distance  # The distance measured by the sensor in meters
-            if (abs(distance - 20) <= 1.5):
+            distance = (
+                distance_data.distance
+            )  # The distance measured by the sensor in meters
+            if abs(distance - 20) <= 1.5:
                 distance = 20
             yaw, pitch = euler_angles[0], euler_angles[1]
             car_info = np.array([yaw, pitch, vx, vy, speed, car_controls.steering])
             next_state2 = car_info
             min_pos = get_min_pos(
-                position_info.kinematics_estimated.position.x_val, position_info.kinematics_estimated.position.y_val)
-            env_state['curr_x'] = position_info.kinematics_estimated.position.x_val
-            env_state['curr_y'] = position_info.kinematics_estimated.position.y_val
-            env_state['vx'] = vx  # Ensure this matches your intended key, changed from 'curr_vx' for consistency
-            env_state['vy'] = vy
-            env_state['yaw'] = euler_angles[0]
-            env_state['pitch'] = euler_angles[1]
-            env_state['speed'] = speed
-            env_state['collision'] = collision_info.has_collided
-            env_state['min_pos'] = min_pos
-            env_state['angular_velocity_x'] = angular_velocity_x
-            env_state['angular_velocity_y'] = angular_velocity_y
-            env_state['angular_velocity_z'] = angular_velocity_z
-            env_state['total_step_counter'] = total_step_counter
-            env_state['episode_step_counter'] = episode_step_counter
-            env_state['distance'] = distance
+                position_info.kinematics_estimated.position.x_val,
+                position_info.kinematics_estimated.position.y_val,
+            )
+            env_state["curr_x"] = position_info.kinematics_estimated.position.x_val
+            env_state["curr_y"] = position_info.kinematics_estimated.position.y_val
+            env_state[
+                "vx"
+            ] = vx  # Ensure this matches your intended key, changed from 'curr_vx' for consistency
+            env_state["vy"] = vy
+            env_state["yaw"] = euler_angles[0]
+            env_state["pitch"] = euler_angles[1]
+            env_state["speed"] = speed
+            env_state["collision"] = collision_info.has_collided
+            env_state["min_pos"] = min_pos
+            env_state["angular_velocity_x"] = angular_velocity_x
+            env_state["angular_velocity_y"] = angular_velocity_y
+            env_state["angular_velocity_z"] = angular_velocity_z
+            env_state["total_step_counter"] = total_step_counter
+            env_state["episode_step_counter"] = episode_step_counter
+            env_state["distance"] = distance
 
             # Handling action_list
-            if counter_action > 1:  # Ensure this counter is defined and updated in your loop
-                env_state['action_list'][:-1] = env_state['action_list'][1:]  # Shift existing actions left
-                env_state['action_list'][-1] = steering  # Add the new action to the end
+            if (
+                counter_action > 1
+            ):  # Ensure this counter is defined and updated in your loop
+                env_state["action_list"][:-1] = env_state["action_list"][
+                    1:
+                ]  # Shift existing actions left
+                env_state["action_list"][-1] = steering  # Add the new action to the end
             else:
-                env_state['action_list'] = np.array([steering] * 4)  # Initialize actio
+                env_state["action_list"] = np.array([steering] * 4)  # Initialize actio
 
-            reward, reward_components = call_reward_func_dynamically(reward_func, env_state)
+            reward, reward_components = call_reward_func_dynamically(
+                reward_func, env_state
+            )
             #     print(" reward and episodic step and done and collision",reward,episode_step_counter,done,collision_info.has_collided)
 
             if collision_info.has_collided == 1:
@@ -294,7 +358,9 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
                 time.sleep(1)
                 client.setCarControls(car_controls)
 
-            buffer.add((state, action, reward, next_state, int(done), state2, next_state2))
+            buffer.add(
+                (state, action, reward, next_state, int(done), state2, next_state2)
+            )
 
             state = next_state
             episode_total_reward += reward
@@ -313,8 +379,13 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
                 buffer.update_priorities(tree_idxs, td_error)
             if total_step_counter % 500 == 0:
                 agentoo7.save_network()
-        print("final episode reward , with epsilon probability and total steps and ip", episode_total_reward,
-              agentoo7.epsilon, total_step_counter, ip_address)
+        print(
+            "final episode reward , with epsilon probability and total steps and ip",
+            episode_total_reward,
+            agentoo7.epsilon,
+            total_step_counter,
+            ip_address,
+        )
         rewards_history["total_reward"].append(episode_total_reward)
         for component, sum_value in episode_component_sums.items():
             if component not in rewards_history:
@@ -322,10 +393,10 @@ def run_training(ip_address, reward_func_path, counter_model, iteration, group_i
             else:
                 rewards_history[component].append(sum_value)
 
-        with open(episodic_steps_filename, 'a') as file:
-            file.write(str(episode_step_counter) + '\n')
-        with open(total_rewards_filename, 'a') as file:
-            file.write(str(episode_total_reward) + '\n')
+        with open(episodic_steps_filename, "a") as file:
+            file.write(str(episode_step_counter) + "\n")
+        with open(total_rewards_filename, "a") as file:
+            file.write(str(episode_total_reward) + "\n")
 
         #  append_rewards_as_txt(rewards_history_filename_txt, rewards_history)
         episode_step_counter = 0

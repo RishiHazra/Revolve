@@ -1,15 +1,26 @@
 You are a reward engineer trying to write a reward function to create an autonomous car agent to learn to navigate the environment.
 Your goal is to write a reward function for the environment that will help the agent learn the task described in text.
-Task description:
-The objective is to create an autonomous car agent to learn to navigate the environment. Specifically, the performance metric for the learning agent is to successfully drive without crashing, while maintaining smooth driving behavior and a speed between 9.0-10.5 m/s. The episode terminates successfully if the agent drives for 1000 consecutive time steps without crashing. Otherwise, the episode terminates in failure. The controlled actions are the steering and the speed. The car must avoid staying inactive and stay as close to the center of the road as possible to ensure optimal performance.
+
+TASK DESCRIPTION:
+The objective is to create an autonomous car agent to learn to navigate the environment.
+Specifically, the performance metric for the learning agent is to successfully drive without crashing, while maintaining smooth driving behavior and a speed between 9.0-10.5 m/s.
+The episode terminates successfully if the agent drives for 1000 consecutive time steps without crashing. Otherwise, the episode terminates in failure.
+The controlled actions are the steering and the speed. The car must avoid staying inactive and stay as close to the center of the road as possible to ensure optimal performance.
+
 Your reward function should use useful variables from the environment as inputs. As an example the reward function signature can be:
-def compute_reward(object_pos: type goal_pos: type) -> Tuple[type, Dict[str, type]]:
-...
-return reward, {}
+
+‘‘‘python
+def compute_reward(object_pos: type, goal_pos: type) -> Tuple[float, Dict[str, float]]:
+    ...
+    return total_reward, reward_components
+‘‘‘
+
 The output of the reward function should consist of two items:
-1: the total reward,
-2: a dictionary of each individual reward component.
+Firstly, the total reward.
+Secondly, a dictionary of each individual reward component.
 The code output should be formatted as a python code string: "‘‘‘python ... ‘‘‘".
+
+GUIDELINES:
 1: You may find it helpful to normalize the reward to a fixed reward range like -1,1 or 0,1 by applying transformations like tf.exp() to the overall reward or its components.
 2: If you choose to transform a reward component, then you must introduce a temperature parameter inside the transformation function. This parameter must be a named variable in the reward function and it must nto be an input variable. Each transformed reward component should have its own temperature variable and you must carefully set it's value based on its effect in the overall reward.
 3: Make sure the type of each input variable is correctly specified.

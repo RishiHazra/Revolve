@@ -32,16 +32,22 @@ class DrivingAgent:
         self.min_epsilon = 0.01
         self.gamma = 0.99
         self.no_model = no_model
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr, clipnorm=self.clipnorm)
-        self.optimizer2 = tf.keras.optimizers.Adam(learning_rate=self.lr, clipnorm=self.clipnorm)
+        self.optimizer = tf.keras.optimizers.Adam(
+            learning_rate=self.lr, clipnorm=self.clipnorm
+        )
+        self.optimizer2 = tf.keras.optimizers.Adam(
+            learning_rate=self.lr, clipnorm=self.clipnorm
+        )
         self.target_net = self.ddqn.create_model()
-        self.weights_dir = os.path.join(os.environ['ROOT_PATH'],
-                                        f'{baseline}/{llm_model}/group_{group_id}/model_checkpoints')
+        self.weights_dir = os.path.join(
+            os.environ["ROOT_PATH"],
+            f"{baseline}/{llm_model}/group_{group_id}/model_checkpoints",
+        )
         os.makedirs(self.weights_dir, exist_ok=True)
 
-        main_weights_file = f'main1_{self.no_model}.h5'
-        main_weights_file2 = f'main2_{self.no_model}.h5'
-        target_weights_file = f'target_{self.no_model}.h5'
+        main_weights_file = f"main1_{self.no_model}.h5"
+        main_weights_file2 = f"main2_{self.no_model}.h5"
+        target_weights_file = f"target_{self.no_model}.h5"
 
         loop_num = 1
         if loop_num != 0:
@@ -61,13 +67,17 @@ class DrivingAgent:
                 b = np.random.choice([i for i in range(len(avail_actions_comb))])
             return b
         else:
-            q_values = self.q_net([np.expand_dims(state, axis=0), np.expand_dims(state2, axis=0)])
+            q_values = self.q_net(
+                [np.expand_dims(state, axis=0), np.expand_dims(state2, axis=0)]
+            )
             action = np.argmax(q_values)
             # print("q values",q_values)
             return action
 
     def construct_weights_path(self, base_filename):
-        return os.path.join(self.weights_dir, f'{base_filename}_{self.iteration}_{self.no_model}.h5')
+        return os.path.join(
+            self.weights_dir, f"{base_filename}_{self.iteration}_{self.no_model}.h5"
+        )
 
     def update_target(self, tau=None):
         if tau is None:
@@ -76,27 +86,33 @@ class DrivingAgent:
         weights_target_net = self.target_net.get_weights()
 
         for i in range(len(weights_q_net)):
-            weights_target_net[i] = self.tau * weights_q_net[i] + (1 - self.tau) * weights_target_net[i]
+            weights_target_net[i] = (
+                self.tau * weights_q_net[i] + (1 - self.tau) * weights_target_net[i]
+            )
 
         self.target_net.set_weights(weights_target_net)
 
     def update_epsilon(self):
-        self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.min_epsilon else self.min_epsilon
+        self.epsilon = (
+            self.epsilon - self.epsilon_decay
+            if self.epsilon > self.min_epsilon
+            else self.min_epsilon
+        )
         return self.epsilon
 
     def save_network(self):
-        main_weights_file = self.construct_weights_path('main1')
-        main_weights_file2 = self.construct_weights_path('main2')
-        target_weights_file = self.construct_weights_path('target')
+        main_weights_file = self.construct_weights_path("main1")
+        main_weights_file2 = self.construct_weights_path("main2")
+        target_weights_file = self.construct_weights_path("target")
 
         self.q_net.save_weights(main_weights_file)
         self.q_net2.save_weights(main_weights_file2)
         self.target_net.save_weights(target_weights_file)
 
     def load_network(self):
-        main_weights_file = self.construct_weights_path('main1')
-        main_weights_file2 = self.construct_weights_path('main2')
-        target_weights_file = self.construct_weights_path('target')
+        main_weights_file = self.construct_weights_path("main1")
+        main_weights_file2 = self.construct_weights_path("main2")
+        target_weights_file = self.construct_weights_path("target")
 
         if os.path.exists(main_weights_file):
             self.q_net.load_weights(main_weights_file)
@@ -130,7 +146,9 @@ class DrivingAgent:
 
         actions = tf.squeeze(actions, axis=-1)
         actions = tf.cast(actions, dtype=tf.int32)
-        action_indices = tf.stack([tf.range(self.batch_size, dtype=tf.int32), actions], axis=1)
+        action_indices = tf.stack(
+            [tf.range(self.batch_size, dtype=tf.int32), actions], axis=1
+        )
 
         with tf.GradientTape(persistent=True) as tape:
             q_current = self.q_net([states, state2])
@@ -148,26 +166,43 @@ class DrivingAgent:
 
             next_q_target_net = self.target_net([next_states, next_state2])
 
-            max_next_q_target_net = tf.gather_nd(next_q_target_net,
-                                                 np.stack([np.arange(self.batch_size, dtype=np.int32), max_action],
-                                                          axis=1))
+            max_next_q_target_net = tf.gather_nd(
+                next_q_target_net,
+                np.stack(
+                    [np.arange(self.batch_size, dtype=np.int32), max_action], axis=1
+                ),
+            )
             # max_next_q_target_net=tf.cast(max_next_q_target_net,dtype=tf.float16) q_target_current = tf.cast(
             # q_target_current, dtype=tf.float16)  # Ensure q_target_current is of type tf.float16
 
-            q_target_current = rewards + gamma_tensor * max_next_q_target_net * (1 - dones)
+            q_target_current = rewards + gamma_tensor * max_next_q_target_net * (
+                1 - dones
+            )
 
             td_error = q_target_current - q_values
             td_error2 = q_target_current - q_values2
 
-            weighted_squared_td_error = weights * tf.square(td_error)  # Multiply squared TD error by weights
+            weighted_squared_td_error = weights * tf.square(
+                td_error
+            )  # Multiply squared TD error by weights
             loss = tf.reduce_mean(weighted_squared_td_error)
-            weighted_squared_td_error2 = weights * tf.square(td_error2)  # Multiply squared TD error by weights
+            weighted_squared_td_error2 = weights * tf.square(
+                td_error2
+            )  # Multiply squared TD error by weights
             loss2 = tf.reduce_mean(weighted_squared_td_error2)
 
-        gradients = tape.gradient(loss, self.q_net.trainable_variables)  # compute gradients
-        self.optimizer.apply_gradients(zip(gradients, self.q_net.trainable_variables))  # apply gradients
-        gradients2 = tape.gradient(loss2, self.q_net2.trainable_variables)  # compute gradients
-        self.optimizer2.apply_gradients(zip(gradients2, self.q_net2.trainable_variables))
+        gradients = tape.gradient(
+            loss, self.q_net.trainable_variables
+        )  # compute gradients
+        self.optimizer.apply_gradients(
+            zip(gradients, self.q_net.trainable_variables)
+        )  # apply gradients
+        gradients2 = tape.gradient(
+            loss2, self.q_net2.trainable_variables
+        )  # compute gradients
+        self.optimizer2.apply_gradients(
+            zip(gradients2, self.q_net2.trainable_variables)
+        )
         td_error = tf.maximum(tf.abs(td_error), tf.abs(td_error2))
 
         self.update_epsilon()
