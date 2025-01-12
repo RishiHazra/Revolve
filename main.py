@@ -134,7 +134,6 @@ def main(cfg):
         # metrics_dicts = []
         policies = []
 
-        # TODO: parallelize this
         # for each generation, produce new individuals via mutation or crossover
         for counter_id in range(cfg.evolution.individuals_per_generation):
             if iteration_id == 0:  # initially, uniformly populate the islands
