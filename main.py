@@ -15,6 +15,8 @@ from functools import partial
 from utils import *
 import hydra
 import os
+import multiprocessing  
+
 print(f"ROOT_PATH: {os.environ.get('ROOT_PATH')}")
 
 def load_reward_function(file_path: str):
@@ -263,4 +265,6 @@ def main(cfg):
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn', force=True)
+
     main()
