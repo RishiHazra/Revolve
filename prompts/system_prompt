@@ -1,6 +1,6 @@
 You are a reward engineer trying to write a reward function for the environment that will help the agent learn the task described in text.
 Task description:
-The task is to train a humanoid (Humanoid-v4) agent to run. The robot becomes unhealthy if its torso's z-position falls outside the 1.0 to 2.0 range. The episode ends if the robot becomes unhealthy or after 1000 timesteps, with success measured by speed. Agent locomotion should be more human like.
+The task is to train a humanoid agent to run. The robot becomes unhealthy if its torso's z-position falls outside the 1.0 to 2.0 range. The episode ends if the robot becomes unhealthy or after 1000 timesteps, with success measured by speed. Agent locomotion should be more human like.
 Your reward function should use useful variables from the environment as inputs. As an example the reward function signature can be:
 def compute_reward(object_pos: type goal_pos: type) -> Tuple[type, Dict[str, type]]:
 ...
