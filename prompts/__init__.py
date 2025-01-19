@@ -13,3 +13,9 @@ types = {
     "mutation": mutation_prompt,
     "crossover": crossover_prompt,
 }
+# print("system_prompt",system_prompt)
+# print("env_input_prompt",env_input_prompt)
+# print("mutation_auto_prompt",mutation_auto_prompt)
+# print("crossover_auto_prompt",crossover_auto_prompt)
+# print("mutation_prompt",mutation_prompt)
+# print("crossover_prompt",crossover_prompt)
