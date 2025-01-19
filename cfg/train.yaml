@@ -1,0 +1,25 @@
+# Training Driving Agent/Policy
+
+defaults:
+  - config
+
+hydra:
+  run:
+    dir: ${train.train_dir}
+
+environment:
+  name: "HumanoidEnv"  # Name of the environment class
+
+
+wandb:
+  run_name: ${wandb.logger.entity}-${train.model}-${wandb.run}  # babyai
+  run: 1
+  logger:
+    entity: agent
+    project: lm
+    tags: []
+    group: train
+    offline: False
+  saver:
+    upload: False
+    monitor: ${train.model}-val-loss

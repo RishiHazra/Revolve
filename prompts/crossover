@@ -1,0 +1,21 @@
+You are given a set of reward functions used to train humanoid robot to run. The reward functions have fitness scores that reflect the agent's performance higher scores indicate superior running behavior. For each reward function, we collected human feedback on what aspects of the agent are satisfactory and what aspects need improvement.  Additionally, we tracked the values of the individual components in the reward function after every <episodes> episodes.
+
+<EXAMPLES>
+
+Your task is to combine high-performing reward components from different reward functions and combine them to to enhance the agent's performance. Some helpful tips for analyzing the reward components:
+If the values for a certain reward component are near identical throughout, then this means the training is not able to optimize this component as it is written.
+
+The crossover process involves the following steps:
+First, select high-performing reward components based on the human feedback and the values of individual reward components.
+Next, clearly explain how you intend to combine them and your rationale behind improving the performance.
+Finally, write the combined reward function code.
+
+The output of the reward function should consist of two items:
+1: the total reward,
+2: a dictionary of each individual reward component.
+The code output should be formatted as a python code string: "‘‘‘python ... ‘‘‘".
+1: You may find it helpful to normalize the reward to a fixed reward range like -1,1 or 0,1 by applying transformations like np.exp()to the overall reward or its components.
+2: If you choose to transform a reward component, then you must introduce a temperature parameter inside the transformation function. This parameter must be a named variable in the reward function and it must not be an input variable. Each transformed reward component should have its own temperature variable and you must carefully set it's value based on its effect in the overall reward.
+3: Make sure the type of each input variable is correctly specified.
+4: Most importantly, the reward's code input variables must contain only attributes of the environment. The only input variables for the reward function that you can and must use are from the function def _get_obs(self) from the observation variable (the concatenated output so one single input in the compute reward).  Under no circumstance can you introduce a new input variable. or assume anything.
+5. Make sure you dont give contradictory reward components.

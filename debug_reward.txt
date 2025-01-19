@@ -1,0 +1,44 @@
+def compute_reward(observation: np.ndarray) -> Tuple[float, Dict[str, float]]:
+    # Define the temperature variables for reward components transformation.
+    speed_temp = 1.0
+    health_temp = 5.0
+    joint_use_temp = 0.1
+    
+    # Define the healthy z-range for the torso position.
+    healthy_z_min = 1.0
+    healthy_z_max = 2.0
+
+    # Extract relevant parts from the observation.
+    z_coordinate = observation[0]  # Torso z-coordinate.
+    z_velocity = observation[24]    # Torso z-coordinate velocity. We want forward speed, i.e., x-velocity
+    x_velocity = observation[22]    
+
+    # Reward for forward speed (positive x-velocity).
+    speed_reward = x_velocity
+    # Transform with temperature to control the importance of speed in the total reward.
+    speed_reward = np.exp(speed_temp * (speed_reward - 1))
+
+    # Penalty for unhealthy z-coordinate position.
+    health_penalty = float(z_coordinate < healthy_z_min or z_coordinate > healthy_z_max)
+    # Transform with temperature to control the importance of health in the total reward.
+    health_penalty = -np.exp(health_temp * health_penalty)
+
+    # Reward for using joints in a "human-like" fashion, encouraging movement and penalizing stagnation.
+    # We will use the standard deviation of joint velocities as a proxy; higher values indicate more usage.
+    joint_velocities = observation[24:47]  # Extract joint velocities.
+    joint_usage_reward = np.std(joint_velocities)
+    # Transform with temperature to control the importance of joint use in the total reward.
+    joint_usage_reward = np.exp(joint_use_temp * (joint_usage_reward - 1))
+
+    # Total reward is the sum of individual reward components.
+    total_reward = speed_reward + health_penalty + joint_usage_reward
+
+    # Dictionary of individual reward components for debugging/analysis.
+    reward_components = {
+        'speed_reward': speed_reward,
+        'health_penalty': health_penalty,
+        'joint_usage_reward': joint_usage_reward
+    }
+
+    return total_reward, reward_components
+

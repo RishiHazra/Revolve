@@ -1,0 +1,181 @@
+class HumanoidEnv(MujocoEnv, utils.EzPickle):
+    """
+    ## Description
+
+    ## Action Space
+    The action space is a `Box(-1, 1, (17,), float32)`. An action represents the torques applied at the hinge joints.
+
+    ## Observation Space
+    Observations consist of positional values of different body parts of the Humanoid,
+    followed by the velocities of those individual parts (their derivatives) with all the
+    positions ordered before all the velocities.
+
+    By default, observations do not include the x- and y-coordinates of the torso. These may
+    be included by passing `exclude_current_positions_from_observation=False` during construction.
+    In that case, the observation space will be a `Box(-Inf, Inf, (378,), float64)` where the first two observations
+    represent the x- and y-coordinates of the torso.
+    Regardless of whether `exclude_current_positions_from_observation` was set to true or false, the x- and y-coordinates
+    will be returned in `info` with keys `"x_position"` and `"y_position"`, respectively.
+
+    However, by default, the observation is a `Box(-Inf, Inf, (376,), float64)`. The elements correspond to the following:
+
+    | Num | Observation                                                                                                     | Min  | Max | Name (in corresponding XML file) | Joint | Unit                       |
+    | --- | --------------------------------------------------------------------------------------------------------------- | ---- | --- | -------------------------------- | ----- | -------------------------- |
+    | 0   | z-coordinate of the torso (centre)                                                                              | -Inf | Inf | root                             | free  | position (m)               |
+    | 1   | x-orientation of the torso (centre)                                                                             | -Inf | Inf | root                             | free  | angle (rad)                |
+    | 2   | y-orientation of the torso (centre)                                                                             | -Inf | Inf | root                             | free  | angle (rad)                |
+    | 3   | z-orientation of the torso (centre)                                                                             | -Inf | Inf | root                             | free  | angle (rad)                |
+    | 4   | w-orientation of the torso (centre)                                                                             | -Inf | Inf | root                             | free  | angle (rad)                |
+    | 5   | z-angle of the abdomen (in lower_waist)                                                                         | -Inf | Inf | abdomen_z                        | hinge | angle (rad)                |
+    | 6   | y-angle of the abdomen (in lower_waist)                                                                         | -Inf | Inf | abdomen_y                        | hinge | angle (rad)                |
+    | 7   | x-angle of the abdomen (in pelvis)                                                                              | -Inf | Inf | abdomen_x                        | hinge | angle (rad)                |
+    | 8   | x-coordinate of angle between pelvis and right hip (in right_thigh)                                             | -Inf | Inf | right_hip_x                      | hinge | angle (rad)                |
+    | 9   | z-coordinate of angle between pelvis and right hip (in right_thigh)                                             | -Inf | Inf | right_hip_z                      | hinge | angle (rad)                |
+    | 10  | y-coordinate of angle between pelvis and right hip (in right_thigh)                                             | -Inf | Inf | right_hip_y                      | hinge | angle (rad)                |
+    | 11  | angle between right hip and the right shin (in right_knee)                                                      | -Inf | Inf | right_knee                       | hinge | angle (rad)                |
+    | 12  | x-coordinate of angle between pelvis and left hip (in left_thigh)                                               | -Inf | Inf | left_hip_x                       | hinge | angle (rad)                |
+    | 13  | z-coordinate of angle between pelvis and left hip (in left_thigh)                                               | -Inf | Inf | left_hip_z                       | hinge | angle (rad)                |
+    | 14  | y-coordinate of angle between pelvis and left hip (in left_thigh)                                               | -Inf | Inf | left_hip_y                       | hinge | angle (rad)                |
+    | 15  | angle between left hip and the left shin (in left_knee)                                                         | -Inf | Inf | left_knee                        | hinge | angle (rad)                |
+    | 16  | coordinate-1 (multi-axis) angle between torso and right arm (in right_upper_arm)                                | -Inf | Inf | right_shoulder1                  | hinge | angle (rad)                |
+    | 17  | coordinate-2 (multi-axis) angle between torso and right arm (in right_upper_arm)                                | -Inf | Inf | right_shoulder2                  | hinge | angle (rad)                |
+    | 18  | angle between right upper arm and right_lower_arm                                                               | -Inf | Inf | right_elbow                      | hinge | angle (rad)                |
+    | 19  | coordinate-1 (multi-axis) angle between torso and left arm (in left_upper_arm)                                  | -Inf | Inf | left_shoulder1                   | hinge | angle (rad)                |
+    | 20  | coordinate-2 (multi-axis) angle between torso and left arm (in left_upper_arm)                                  | -Inf | Inf | left_shoulder2                   | hinge | angle (rad)                |
+    | 21  | angle between left upper arm and left_lower_arm                                                                 | -Inf | Inf | left_elbow                       | hinge | angle (rad)                |
+    | 22  | x-coordinate velocity of the torso (centre)                                                                     | -Inf | Inf | root                             | free  | velocity (m/s)             |
+    | 23  | y-coordinate velocity of the torso (centre)                                                                     | -Inf | Inf | root                             | free  | velocity (m/s)             |
+    | 24  | z-coordinate velocity of the torso (centre)                                                                     | -Inf | Inf | root                             | free  | velocity (m/s)             |
+    | 25  | x-coordinate angular velocity of the torso (centre)                                                             | -Inf | Inf | root                             | free  | anglular velocity (rad/s)  |
+    | 26  | y-coordinate angular velocity of the torso (centre)                                                             | -Inf | Inf | root                             | free  | anglular velocity (rad/s)  |
+    | 27  | z-coordinate angular velocity of the torso (centre)                                                             | -Inf | Inf | root                             | free  | anglular velocity (rad/s)  |
+    | 28  | z-coordinate of angular velocity of the abdomen (in lower_waist)                                                | -Inf | Inf | abdomen_z                        | hinge | anglular velocity (rad/s)  |
+    | 29  | y-coordinate of angular velocity of the abdomen (in lower_waist)                                                | -Inf | Inf | abdomen_y                        | hinge | anglular velocity (rad/s)  |
+    | 30  | x-coordinate of angular velocity of the abdomen (in pelvis)                                                     | -Inf | Inf | abdomen_x                        | hinge | aanglular velocity (rad/s) |
+    | 31  | x-coordinate of the angular velocity of the angle between pelvis and right hip (in right_thigh)                 | -Inf | Inf | right_hip_x                      | hinge | anglular velocity (rad/s)  |
+    | 32  | z-coordinate of the angular velocity of the angle between pelvis and right hip (in right_thigh)                 | -Inf | Inf | right_hip_z                      | hinge | anglular velocity (rad/s)  |
+    | 33  | y-coordinate of the angular velocity of the angle between pelvis and right hip (in right_thigh)                 | -Inf | Inf | right_hip_y                      | hinge | anglular velocity (rad/s)  |
+    | 34  | angular velocity of the angle between right hip and the right shin (in right_knee)                              | -Inf | Inf | right_knee                       | hinge | anglular velocity (rad/s)  |
+    | 35  | x-coordinate of the angular velocity of the angle between pelvis and left hip (in left_thigh)                   | -Inf | Inf | left_hip_x                       | hinge | anglular velocity (rad/s)  |
+    | 36  | z-coordinate of the angular velocity of the angle between pelvis and left hip (in left_thigh)                   | -Inf | Inf | left_hip_z                       | hinge | anglular velocity (rad/s)  |
+    | 37  | y-coordinate of the angular velocity of the angle between pelvis and left hip (in left_thigh)                   | -Inf | Inf | left_hip_y                       | hinge | anglular velocity (rad/s)  |
+    | 38  | angular velocity of the angle between left hip and the left shin (in left_knee)                                 | -Inf | Inf | left_knee                        | hinge | anglular velocity (rad/s)  |
+    | 39  | coordinate-1 (multi-axis) of the angular velocity of the angle between torso and right arm (in right_upper_arm) | -Inf | Inf | right_shoulder1                  | hinge | anglular velocity (rad/s)  |
+    | 40  | coordinate-2 (multi-axis) of the angular velocity of the angle between torso and right arm (in right_upper_arm) | -Inf | Inf | right_shoulder2                  | hinge | anglular velocity (rad/s)  |
+    | 41  | angular velocity of the angle between right upper arm and right_lower_arm                                       | -Inf | Inf | right_elbow                      | hinge | anglular velocity (rad/s)  |
+    | 42  | coordinate-1 (multi-axis) of the angular velocity of the angle between torso and left arm (in left_upper_arm)   | -Inf | Inf | left_shoulder1                   | hinge | anglular velocity (rad/s)  |
+    | 43  | coordinate-2 (multi-axis) of the angular velocity of the angle between torso and left arm (in left_upper_arm)   | -Inf | Inf | left_shoulder2                   | hinge | anglular velocity (rad/s)  |
+    | 44  | angular velocity of the angle between left upper arm and left_lower_arm                                         | -Inf | Inf | left_elbow                       | hinge | anglular velocity (rad/s)  |
+    | excluded | x-coordinate of the torso (centre)                                                                         | -Inf | Inf | root                             | free  | position (m)               |
+    | excluded | y-coordinate of the torso (centre)                                                                         | -Inf | Inf | root                             | free  | position (m)               |
+
+    Additionally, after all the positional and velocity based values in the table,
+    the observation contains (in order):
+    - *cinert:* Mass and inertia of a single rigid body relative to the center of mass
+    (this is an intermediate result of transition). It has shape 14*10 (*nbody * 10*)
+    and hence adds to another 140 elements in the state space.
+    - *cvel:* Center of mass based velocity. It has shape 14 * 6 (*nbody * 6*) and hence
+    adds another 84 elements in the state space
+    - *qfrc_actuator:* Constraint force generated as the actuator force. This has shape
+    `(23,)`  *(nv * 1)* and hence adds another 23 elements to the state space.
+    - *cfrc_ext:* This is the center of mass based external force on the body.  It has shape
+    14 * 6 (*nbody * 6*) and hence adds to another 84 elements in the state space.
+    where *nbody* stands for the number of bodies in the robot and *nv* stands for the
+    number of degrees of freedom (*= dim(qvel)*)
+
+    The body parts are:
+
+    | id (for `v2`,`v3`,`v4`) | body part |
+    | --- |  ------------  |
+    | 0   | worldBody (note: all values are constant 0) |
+    | 1   | torso |
+    | 2   | lwaist |
+    | 3   | pelvis |
+    | 4   | right_thigh |
+    | 5   | right_sin |
+    | 6   | right_foot |
+    | 7   | left_thigh |
+    | 8   | left_sin |
+    | 9   | left_foot |
+    | 10  | right_upper_arm |
+    | 11  | right_lower_arm |
+    | 12  | left_upper_arm |
+    | 13  | left_lower_arm |
+
+    The joints are:
+
+    | id (for `v2`,`v3`,`v4`) | joint |
+    | --- |  ------------  |
+    | 0   | root |
+    | 1   | root |
+    | 2   | root |
+    | 3   | root |
+    | 4   | root |
+    | 5   | root |
+    | 6   | abdomen_z |
+    | 7   | abdomen_y |
+    | 8   | abdomen_x |
+    | 9   | right_hip_x |
+    | 10  | right_hip_z |
+    | 11  | right_hip_y |
+    | 12  | right_knee |
+    | 13  | left_hip_x |
+    | 14  | left_hiz_z |
+    | 15  | left_hip_y |
+    | 16  | left_knee |
+    | 17  | right_shoulder1 |
+    | 18  | right_shoulder2 |
+    | 19  | right_elbow|
+    | 20  | left_shoulder1 |
+    | 21  | left_shoulder2 |
+    | 22  | left_elfbow |
+
+
+
+    ## Episode End
+    The humanoid is said to be unhealthy if the z-position of the torso is no longer contained in the
+    closed interval specified by the argument `healthy_z_range`.
+
+    If `terminate_when_unhealthy=True` is passed during construction (which is the default),
+    the episode ends when any of the following happens:
+
+    1. Truncation: The episode duration reaches a 1000 timesteps
+    3. Termination: The humanoid is unhealthy
+
+    If `terminate_when_unhealthy=False` is passed, the episode is ended only when 1000 timesteps are exceeded.
+
+        *position: indices from 0 to 23 → obs[0:24]
+	*velocity: indices from 24 to 46 → obs[24:47]
+	*com_inertia: indices from 47 to 186 → obs[47:187]
+	*com_velocity: indices from 187 to 270 → obs[187:271]
+	*actuator_forces: indices from 271 to 293 → obs[271:294]
+	*external_contact_forces: indices from 294 to 377 → obs[294:378]
+		
+
+    @property
+    def is_healthy(self):
+        min_z, max_z = self._healthy_z_range
+        is_healthy = min_z < self.data.qpos[2] < max_z
+
+        return is_healthy
+
+
+    def _get_obs(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        position = self.data.qpos.flat.copy()
+        velocity = self.data.qvel.flat.copy()
+
+        com_inertia = self.data.cinert.flat.copy()
+        com_velocity = self.data.cvel.flat.copy()
+
+        actuator_forces = self.data.qfrc_actuator.flat.copy()
+        external_contact_forces = self.data.cfrc_ext.flat.copy()
+
+
+        observation = np.concatenate(
+        (position, velocity, com_inertia, com_velocity, actuator_forces, external_contact_forces,)
+    )
+
+        return observation
+
