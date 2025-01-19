@@ -7,30 +7,9 @@ hydra:
   run:
     dir: ${train.train_dir}
 
-train:
-  train_dir: ${root_dir}/train
-  ckpt_dir: ${root_dir}/checkpoints/${train.model}
+environment:
+  name: "HumanoidEnv"  # Name of the environment class
 
-  # DDDQN training hyperparameters
-  gamma: 0.99  # discount factor in ddqn algorithm
-  lr: 0.00025   # learning rate
-  clipnorm: 1.5 # clip gradient values
-  epsilon: 1 # starting probability for exploration
-  min_epsilon: 0.02 # min probability of random action exploration/exploitation
-  epsilon_decay: 1e-3 # step decay of epsilon prob per sstep
-  trainstep: 0  # total steps of training (dnt think its used somewhere)
-  batch_size: 32
-  tau: 0.0075  # soft update for target net
-  alpha: 0.9 # prioritization degree for PER buffer
-  beta: 0.4 # Balances the importance-sampling weights, reducing their variance. Increases towards 1 over training.
-  priorities_max: 1.0 # The maximum priority for any experience. Ensures no experience has a priority beyond this value.
-  priorities_min: 1e-6 # The minimum priority to ensure no experience is given a zero probability of being replayed.
-  priorities_sum_alpha: 1.0 #  Used for scaling the sum of priorities when computing probabilities
-
-  # script configs
-  gpu: -1 # -1 for all
-  log: True # log metrics and stats to wandb
-  load_from_last_ckpt: False
 
 wandb:
   run_name: ${wandb.logger.entity}-${train.model}-${wandb.run}  # babyai
