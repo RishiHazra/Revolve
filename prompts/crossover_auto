@@ -1,4 +1,4 @@
-You are given a set of reward functions used to train humanoid (Humanoid-v4) agents to run. The reward functions have fitness scores that reflect the agent's performance higher scores indicate superior running behavior.  Additionally, we tracked the values of the individual components in the reward function after every <episodes> episodes.
+You are given a set of reward functions used to train humanoid agents to run. The reward functions have fitness scores that reflect the agent's performance higher scores indicate superior running behavior.  Additionally, we tracked the values of the individual components in the reward function after every <episodes> episodes.
 
 <EXAMPLES>
 
