@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 
 sys.path.append(os.environ["ROOT_PATH"])
 from rewards_database import RevolveDatabase, EurekaDatabase
@@ -11,8 +12,21 @@ from evolutionary_utils.custom_environment import CustomEnvironment
 from typing import Callable, List
 import absl.logging as logging
 from functools import partial
-
+from utils import *
 import hydra
+import os
+print(f"ROOT_PATH: {os.environ.get('ROOT_PATH')}")
+
+def load_reward_function(file_path: str):
+    with open(file_path, 'r') as f:
+        reward_fn_str = f.read()
+
+    # # Create a dictionary for the execution context
+    # reward_fn_context = {}
+    # exec(reward_fn_str, {}, reward_fn_context)
+
+    # Return the loaded function
+    return reward_fn_str
 
 
 def is_valid_reward_fn(generated_fn: Callable, generated_fn_str: str, args: List[str]):
@@ -79,6 +93,8 @@ def generate_valid_reward(
     config_name="generate",
 )
 def main(cfg):
+    env_name = cfg.environment.name
+
     system_prompt = prompts.types["system_prompt"]
     env_input_prompt = prompts.types["env_input_prompt"]
 
@@ -118,7 +134,7 @@ def main(cfg):
             baseline=cfg.evolution.baseline,
         )
 
-    for iteration_id in range(1, cfg.evolution.num_generations + 1):
+    for iteration_id in range(0, cfg.evolution.num_generations ):
         # fix the temperature for sampling
         temperature = temp_scheduler(iteration=iteration_id)
         print(
@@ -162,9 +178,13 @@ def main(cfg):
             )
             logging.info(f"Designing reward function for counter {counter_id}")
             # generate valid fn str
-            rew_func_str, _ = generate_valid_reward(
-                reward_generation, in_context_prompt
-            )
+            # rew_func_str, _ = generate_valid_reward(
+            #     reward_generation, in_context_prompt
+            # )
+            rew_func_str = load_reward_function('debug_reward.txt')
+
+            print("generated reward for counter",counter_id,rew_func_str)
+        
             try:
                 # initialize RL agent policy with the generated reward function
                 policies.append(
@@ -179,7 +199,12 @@ def main(cfg):
                 )
                 rew_fn_strings.append(rew_func_str)
                 counter_ids.append(counter_id)
-            except:
+            except Exception as e:
+                logging.info(f"Error initializing TrainPolicy: {e}")
+                logging.error("Traceback:")
+                logging.error(traceback.format_exc())
+
+
                 logging.info(
                     "Oops, something broke again :( Let's toss it out the window and call it modern art!"
                 )
@@ -192,6 +217,7 @@ def main(cfg):
             continue
         # train policies in parallel
         logging.info(f"Training {len(policies)} policies in parallel.")
+        print("preparing to run in parallel")
         ckpt_paths = train_policies_in_parallel(policies)
         logging.info("Policy training finished.")
 
