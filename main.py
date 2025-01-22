@@ -1,21 +1,18 @@
 import os
 import sys
-import traceback
-import numpy as np
 
 sys.path.append(os.environ["ROOT_PATH"])
 from rewards_database import RevolveDatabase, EurekaDatabase
 from modules import *
 import utils
-import random
 import prompts
 from evolutionary_utils.custom_environment import CustomEnvironment
-from typing import Callable, List
 import absl.logging as logging
 from functools import partial
 from utils import *
 import hydra
 import os
+
 
 def load_reward_function(file_path: str) -> Callable:
     """
@@ -26,15 +23,15 @@ def load_reward_function(file_path: str) -> Callable:
     Returns:
     - Callable: Executable reward function.
     """
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         reward_fn_str = f.read()
-    
+
     # Use define_function_from_string to make it executable
     reward_func, _ = define_function_from_string(reward_fn_str)
-    
+
     if reward_func is None:
         raise ValueError("Failed to load a valid reward function.")
-    
+
     return reward_func
 
 
@@ -58,10 +55,10 @@ def is_valid_reward_fn(generated_fn: Callable, generated_fn_str: str, args: List
 
 
 def generate_valid_reward(
-    reward_generation: RewardFunctionGeneration,
-    in_context_prompt: str,
-    max_trials: int = 10,
-) -> [str, List[str], Callable]:
+        reward_generation: RewardFunctionGeneration,
+        in_context_prompt: str,
+        max_trials: int = 10,
+) -> [str, List[str]]:
     """
     single function generation until valid
     :param reward_generation: initialized class of RewardFunctionGeneration
@@ -91,7 +88,7 @@ def generate_valid_reward(
         if trials >= max_trials:
             logging.info("Exceeded max trials.")
             return None, None, None
-    return rew_func_str, args, rew_func
+    return rew_func_str, args
 
 
 @hydra.main(
@@ -141,7 +138,7 @@ def main(cfg):
             baseline=cfg.evolution.baseline,
         )
 
-    for generation_id in range(0, cfg.evolution.num_generations ):
+    for generation_id in range(0, cfg.evolution.num_generations):
         # fix the temperature for sampling
         temperature = temp_scheduler(iteration=generation_id)
         print(
@@ -164,7 +161,9 @@ def main(cfg):
                 island_id = random.choice(range(rewards_database.num_islands))
                 in_context_samples = (None, None)
                 operator_prompt = ""
-                logging.info(f"Generation {generation_id}, Counter {counter_id}: island_id={island_id}, type={type(island_id)}")
+                logging.info(
+                    f"Generation {generation_id}, Counter {counter_id}: island_id={island_id}, type={type(island_id)}"
+                )
 
             else:  # gen_id > 0: start the evolutionary process
                 (
@@ -174,7 +173,9 @@ def main(cfg):
                 ) = rewards_database.sample_in_context(
                     cfg.few_shot, temperature
                 )  # weighted sampling of islands and corresponding individuals
-                operator = f'{operator}_auto' if 'auto' in cfg.evolution.baseline else operator
+                operator = (
+                    f"{operator}_auto" if "auto" in cfg.evolution.baseline else operator
+                )
                 operator_prompt = prompts.types[operator]
 
             island_ids.append(island_id)
@@ -186,14 +187,11 @@ def main(cfg):
                 baseline=cfg.evolution.baseline,
             )
             logging.info(f"Designing reward function for counter {counter_id}")
-            #generate valid fn str
-            reward_func_str, _, rew_func_exec = generate_valid_reward(
+            # generate valid fn str
+            reward_func_str, _ = generate_valid_reward(
                 reward_generation, in_context_prompt
             )
-            # rew_func_path = '.../debug_reward.txt'
-            # with open(rew_func_path, 'r') as f:
-            #     reward_func_str = f.read()
-        
+
             try:
                 # initialize RL agent policy with the generated reward function
                 policies.append(
@@ -202,7 +200,7 @@ def main(cfg):
                         generation_id,
                         counter_id,
                         island_id,
-                        cfg.evolution.baseline, #cfg.evolution.baseline
+                        cfg.evolution.baseline,  # cfg.evolution.baseline
                         cfg.database.rewards_dir,
                     )
                 )
@@ -212,7 +210,6 @@ def main(cfg):
                 logging.info(f"Error initializing TrainPolicy: {e}")
                 logging.error("Traceback:")
                 logging.error(traceback.format_exc())
-
 
                 logging.info(
                     "Oops, something broke again :( Let's toss it out the window and call it modern art!"
@@ -226,15 +223,14 @@ def main(cfg):
             continue
         # train policies in parallel
         logging.info(f"Training {len(policies)} policies in parallel.")
-        ckpt_paths = train_policies_in_parallel(policies)
+        ckpt_and_performance_paths = train_policies_in_parallel(policies)
         logging.info("Policy training finished.")
 
         # evaluate performance for generated reward functions
         logging.info("Evaluating trained policies in parallel.")
-        metrics_dicts = evaluate_policies_in_parallel(ckpt_paths)
+        metrics_dicts = evaluate_policies_in_parallel(ckpt_and_performance_paths)
         fitness_scores = [metric_dict["fitness"] for metric_dict in metrics_dicts]
         logging.info("Evaluation finished.")
-
 
         # store individuals only if it improves overall island fitness
         # for initialization, we don't use this step

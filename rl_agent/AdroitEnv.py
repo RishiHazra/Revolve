@@ -9,6 +9,7 @@ The modifications made involve organizing the code into different files adding s
 
 This project is covered by the Apache 2.0 License.
 """
+
 import inspect
 import os
 import json
@@ -30,24 +31,33 @@ DEFAULT_CAMERA_CONFIG = {
 }
 
 
-
-
-def define_function_from_string(function_string: str) -> Tuple[Optional[Callable], List[str]]:
+def define_function_from_string(
+    function_string: str,
+) -> Tuple[Optional[Callable], List[str]]:
     namespace = {}
-    additional_globals = {'torch': torch, 'np': np, 'Tuple': Tuple, 'List': List,
-                          'Callable': Callable, 'Optional': Optional, 'Dict': Dict}
+    additional_globals = {
+        "torch": torch,
+        "np": np,
+        "Tuple": Tuple,
+        "List": List,
+        "Callable": Callable,
+        "Optional": Optional,
+        "Dict": Dict,
+    }
     namespace.update(additional_globals)
     exec(function_string, namespace)
-    function = next((value for key, value in namespace.items() if key == 'compute_reward'), None)
+    function = next(
+        (value for key, value in namespace.items() if key == "compute_reward"), None
+    )
     args = inspect.getfullargspec(function).args if function else []
     return function, args
+
 
 def call_reward_func_dynamically(reward_func, env_state):
     params = inspect.signature(reward_func).parameters
     args_to_pass = {param: env_state[param] for param in params if param in env_state}
     reward, reward_components = reward_func(**args_to_pass)
     return reward, reward_components
-
 
 
 class AdroitHandDoorEnv(MujocoEnv, EzPickle):
@@ -205,15 +215,26 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
         ],
         "render_fps": 100,
     }
-#/home/alkis/.local/lib/python3.8/site-packages/gymnasium_robotics/envs/assets/adroit_hand/adroit_door.xml
-#    def __init__(self, reward_type: str = "dense", max_episode_steps: int = 400, mode: str = "train", **kwargs):
+    # /home/alkis/.local/lib/python3.8/site-packages/gymnasium_robotics/envs/assets/adroit_hand/adroit_door.xml
+    #    def __init__(self, reward_type: str = "dense", max_episode_steps: int = 400, mode: str = "train", **kwargs):
 
-    def __init__(self,  reward_fn_path: str, counter:int, iteration:int, group_id:str, llm_model:str, baseline:str, max_episode_steps: int = 400, mode: str = "train", **kwargs):
+    def __init__(
+        self,
+        reward_fn_path: str,
+        counter: int,
+        iteration: int,
+        group_id: str,
+        llm_model: str,
+        baseline: str,
+        max_episode_steps: int = 400,
+        mode: str = "train",
+        **kwargs,
+    ):
         # xml_file_path = path.join(
         #     path.dirname(path.realpath(__file__)),
         #     "../assets/adroit_hand/adroit_door.xml",
         # )
-        #/home/alkis/.local/lib/python3.8/site-packages/gymnasium_robotics/envs/assets/adroit_hand/adroit_door.xml
+        # /home/alkis/.local/lib/python3.8/site-packages/gymnasium_robotics/envs/assets/adroit_hand/adroit_door.xml
         self.max_episode_steps = max_episode_steps
         self.reward_fn_path = reward_fn_path
         self.counter = counter
@@ -221,25 +242,31 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
         self.group_id = group_id
         self.llm_model = llm_model
         self.baseline = baseline
-        self.custom_env=CustomEnvironment()
+        self.custom_env = CustomEnvironment()
 
-        self.base_path=  os.path.join(os.environ['ROOT_PATH'],
-                            f"{baseline}/{llm_model}/group_{group_id}/reward_history")
+        self.base_path = os.path.join(
+            os.environ["ROOT_PATH"],
+            f"{baseline}/{llm_model}/group_{group_id}/reward_history",
+        )
         self.filename = f"{self.iteration}_{self.counter}.json"
-        self.filepath = os.path.join(self.base_path, self.filename) # for reward components entries
-        os.makedirs( self.base_path, exist_ok=True)
-        self.filename2=f"{self.iteration}_{self.counter}.txt"
-        self.filepath2 = os.path.join(self.base_path, self.filename2) # for wring episode steps and True False for calcualting fitness after
-        self.filename3=f"testing_{self.iteration}_{self.counter}.txt"
-        self.filepath3= os.path.join(self.base_path, self.filename3)
-        
-        self.filename4=f"rewards_{self.iteration}_{self.counter}.txt"
-        self.filepath4= os.path.join(self.base_path, self.filename4)
-        
+        self.filepath = os.path.join(
+            self.base_path, self.filename
+        )  # for reward components entries
+        os.makedirs(self.base_path, exist_ok=True)
+        self.filename2 = f"{self.iteration}_{self.counter}.txt"
+        self.filepath2 = os.path.join(
+            self.base_path, self.filename2
+        )  # for wring episode steps and True False for calcualting fitness after
+        self.filename3 = f"testing_{self.iteration}_{self.counter}.txt"
+        self.filepath3 = os.path.join(self.base_path, self.filename3)
+
+        self.filename4 = f"rewards_{self.iteration}_{self.counter}.txt"
+        self.filepath4 = os.path.join(self.base_path, self.filename4)
+
         self.current_step = 0  # Initialize step counter
         xml_file_path = "/home/alkis/.local/lib/python3.8/site-packages/gymnasium_robotics/envs/assets/adroit_hand/adroit_door.xml"
         self.mode = mode
-        reward_func_str = open(reward_fn_path, 'r').read()
+        reward_func_str = open(reward_fn_path, "r").read()
         self.reward_func, _ = define_function_from_string(reward_func_str)
         observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(39,), dtype=np.float64
@@ -328,53 +355,55 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
         joint_velocities = self.data.qvel.ravel()
         joint_forces = self.data.actuator_force.ravel()
         self.custom_env.update_state(obs, joint_velocities, joint_forces)
-        reward, reward_components = call_reward_func_dynamically(self.reward_func, self.custom_env.env_state)
+        reward, reward_components = call_reward_func_dynamically(
+            self.reward_func, self.custom_env.env_state
+        )
         self.rewards.append(reward)
         for key, value in reward_components.items():
             if key not in self.reward_components_log:
                 self.reward_components_log[key] = []
             self.reward_components_log[key].append(value)
 
-
         # compute the sparse reward variant first
         goal_distance = self.data.qpos[self.door_hinge_addrs]
         goal_achieved = True if goal_distance >= 1.35 else False
-        
+
         episode_summary = {
-            'total_reward': sum(self.rewards),
-            'episode_components': {key: sum(values) for key, values in self.reward_components_log.items()}
+            "total_reward": sum(self.rewards),
+            "episode_components": {
+                key: sum(values) for key, values in self.reward_components_log.items()
+            },
         }
-        
+
         with open(self.filepath4, "a") as file:
             file.write(f"Reward {reward}\n")
-               
+
         done = (goal_distance > 1.35) or (self.current_step >= 400)
         if done and self.mode == "test":
             with open(self.filepath3, "a") as file:
-                file.write(f"Episode finished at step {self.current_step}: Success={goal_achieved}\n")
+                file.write(
+                    f"Episode finished at step {self.current_step}: Success={goal_achieved}\n"
+                )
             # with open(self.filepath4, "a") as file:
             #     file.write(f"Episodic Reward{self.current_step}:\n")
-        
-        #done = goal_distance > 1.35
-        succ=goal_distance > 1.35
-        #done = self.current_step >= self.max_episode_steps
-        if done:
-            with open(self.filepath, 'a') as file:
-                    json.dump(episode_summary, file)
-                    file.write("\n")  # New line for each episode
 
-                # Reset rewards and components for the next episode
+        # done = goal_distance > 1.35
+        succ = goal_distance > 1.35
+        # done = self.current_step >= self.max_episode_steps
+        if done:
+            with open(self.filepath, "a") as file:
+                json.dump(episode_summary, file)
+                file.write("\n")  # New line for each episode
+
+            # Reset rewards and components for the next episode
             self.rewards = []
             self.reward_components_log = {key: [] for key in reward_components.keys()}
 
             with open(self.filepath2, "a") as file:
                 file.write(f"Episode {self.current_step}: Success={succ}\n")
 
-            
         if self.render_mode == "human":
             self.render()
-        
-
 
         return obs, reward, done, False, dict(success=goal_achieved)
 
@@ -384,7 +413,9 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
         # xpos for target
         qpos = self.data.qpos.ravel()
         joint_velocities = self.data.qvel.ravel()
-        joint_forces = self.data.actuator_force.ravel()  # Force/torque applied by each actuator
+        joint_forces = (
+            self.data.actuator_force.ravel()
+        )  # Force/torque applied by each actuator
 
         handle_pos = self.data.site_xpos[self.handle_site_id].ravel()
         palm_pos = self.data.site_xpos[self.grasp_site_id].ravel()
@@ -395,19 +426,18 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
             door_open = -1.0
         latch_pos = qpos[-1]
         return np.concatenate(
-        [
-            qpos[1:-2],             # Existing joint positions
-            [latch_pos],            # Existing latch position
-            door_pos,               # Existing door position
-            palm_pos,               # Existing palm position
-            handle_pos,             # Existing handle position
-            palm_pos - handle_pos,  # Existing positional difference
-            [door_open]           # Existing door open indicator
-           # joint_velocities,       # New: Joint velocities
-           # joint_forces          # New: Forces/torques
-    
-        ]
-    )
+            [
+                qpos[1:-2],  # Existing joint positions
+                [latch_pos],  # Existing latch position
+                door_pos,  # Existing door position
+                palm_pos,  # Existing palm position
+                handle_pos,  # Existing handle position
+                palm_pos - handle_pos,  # Existing positional difference
+                [door_open],  # Existing door open indicator
+                # joint_velocities,       # New: Joint velocities
+                # joint_forces          # New: Forces/torques
+            ]
+        )
 
     def reset(
         self,

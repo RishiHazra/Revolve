@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class CustomEnvironment:
     def __init__(self):
         self.observation = None  # Initialize observation as None
@@ -9,5 +10,4 @@ class CustomEnvironment:
 
     @property
     def env_state(self):
-        return {'observation': self.observation}
-    
+        return {"observation": self.observation}

@@ -8,27 +8,37 @@ from gymnasium.spaces import Box
 import torch
 import logging
 import time
-logging.basicConfig(filename='debug.log', level=logging.DEBUG)
+
+logging.basicConfig(filename="debug.log", level=logging.DEBUG)
 import json
 import os
 from rl_agent.environment import CustomEnvironment
 import numpy as np
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-
-
-
-
-def define_function_from_string(function_string: str) -> Tuple[Optional[Callable], List[str]]:
+def define_function_from_string(
+    function_string: str,
+) -> Tuple[Optional[Callable], List[str]]:
     namespace = {}
-    additional_globals = {'torch': torch, 'np': np, 'Tuple': Tuple, 'List': List,
-                          'Callable': Callable, 'Optional': Optional, 'Dict': Dict}
+    additional_globals = {
+        "torch": torch,
+        "np": np,
+        "Tuple": Tuple,
+        "List": List,
+        "Callable": Callable,
+        "Optional": Optional,
+        "Dict": Dict,
+    }
     namespace.update(additional_globals)
     exec(function_string, namespace)
-    function = next((value for key, value in namespace.items() if key == 'compute_reward'), None)
+    function = next(
+        (value for key, value in namespace.items() if key == "compute_reward"), None
+    )
     args = inspect.getfullargspec(function).args if function else []
     return function, args
+
 
 def call_reward_func_dynamically(reward_func, env_state):
     params = inspect.signature(reward_func).parameters
@@ -309,13 +319,11 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
         reward_func_str: str,
         counter: int,
         generation_id: int,
-        island_id: str ,
+        island_id: str,
         reward_history_file: str,
         velocity_file: str,
-        model_checkpoint_file:str,
+        model_checkpoint_file: str,
         terminate_when_unhealthy=True,
-        
-      
         healthy_z_range=(1.0, 2.0),
         reset_noise_scale=1e-2,
         exclude_current_positions_from_observation=True,
@@ -325,39 +333,33 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             self,
             terminate_when_unhealthy,
             healthy_z_range,
-            
             reset_noise_scale,
             exclude_current_positions_from_observation,
             **kwargs,
         )
-       ########################       if you have already generated                  ########################
-       ########################       a reward file and                              ########################
-       ########################      you have the path instead of the                ######################## 
-       ########################      def compute_reward ... uncomment these lines:   ########################
-       
+        ########################       if you have already generated                  ########################
+        ########################       a reward file and                              ########################
+        ########################      you have the path instead of the                ########################
+        ########################      def compute_reward ... uncomment these lines:   ########################
+
         # with open(reward_func_str, 'r') as f:
         #     reward_func_str = f.read()
-        
+
         self.reward_func, _ = define_function_from_string(reward_func_str)
         self.counter = counter
         self.iteration = generation_id
         self.island_id = island_id
         self._terminate_when_unhealthy = terminate_when_unhealthy
         self._healthy_z_range = healthy_z_range
-        self.total_steps=0
-        self.custom_env=CustomEnvironment()
+        self.total_steps = 0
+        self.custom_env = CustomEnvironment()
         self.reward_history_file = reward_history_file
         self.model_checkpoint_file = model_checkpoint_file
         self.velocity_file = velocity_file
 
-
         os.makedirs(os.path.dirname(self.reward_history_file), exist_ok=True)
         os.makedirs(os.path.dirname(self.model_checkpoint_file), exist_ok=True)
         os.makedirs(os.path.dirname(self.velocity_file), exist_ok=True)
-        
-
-
-
 
         self._reset_noise_scale = reset_noise_scale
         self._exclude_current_positions_from_observation = (
@@ -381,6 +383,7 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             **kwargs,
         )
+
     @property
     def healthy_reward(self):
         return (
@@ -402,14 +405,14 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
     @property
     def terminated(self):
         terminated = (not self.is_healthy) if self._terminate_when_unhealthy else False
-        if(self.total_steps>1000):
-            terminated=True
-            self.total_steps=0
+        if self.total_steps > 1000:
+            terminated = True
+            self.total_steps = 0
         return terminated
 
     def _get_obs(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
         position = self.data.qpos.flat.copy()
         velocity = self.data.qvel.flat.copy()
 
@@ -423,13 +426,20 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             position = position[2:]
 
         observation = np.concatenate(
-        (position, velocity, com_inertia, com_velocity, actuator_forces, external_contact_forces,)
-    )
+            (
+                position,
+                velocity,
+                com_inertia,
+                com_velocity,
+                actuator_forces,
+                external_contact_forces,
+            )
+        )
 
         return observation
 
     def step(self, action):
-        self.total_steps=self.total_steps +1
+        self.total_steps = self.total_steps + 1
         xy_position_before = mass_center(self.model, self.data)
 
         self.do_simulation(action, self.frame_skip)
@@ -440,8 +450,10 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
         observation = self._get_obs()
         self.custom_env.update_state(observation)  # Convert from tensor if necessary
 
-    # Here you can optionally compute reward using CustomEnvironment
-        reward, reward_components = call_reward_func_dynamically(self.reward_func, self.custom_env.env_state)
+        # Here you can optionally compute reward using CustomEnvironment
+        reward, reward_components = call_reward_func_dynamically(
+            self.reward_func, self.custom_env.env_state
+        )
         #    reward, reward_components = self.reward_func(**self.custom_env.env_state)
 
         self.rewards.append(reward)
@@ -451,9 +463,9 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             self.reward_components_log[key].append(value)
 
         terminated = self.terminated
-        
+
         info = {
-            "reward_components":reward_components,
+            "reward_components": reward_components,
             "x_position": xy_position_after[0],
             "y_position": xy_position_after[1],
             "distance_from_origin": np.linalg.norm(xy_position_after, ord=2),
@@ -461,19 +473,22 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             "y_velocity": y_velocity,
         }
         if terminated:
-            info['episode'] = {
-                'r': sum(self.rewards),
-                'l': len(self.rewards),
-                't': time.time() - self.episode_start_time,
+            info["episode"] = {
+                "r": sum(self.rewards),
+                "l": len(self.rewards),
+                "t": time.time() - self.episode_start_time,
             }
 
             episode_summary = {
-                'total_reward': sum(self.rewards),
-                'episode_components': {key: sum(values) for key, values in self.reward_components_log.items()}
+                "total_reward": sum(self.rewards),
+                "episode_components": {
+                    key: sum(values)
+                    for key, values in self.reward_components_log.items()
+                },
             }
 
             # Append episode summary to the JSON file
-            with open(self.reward_history_file, 'a') as file:
+            with open(self.reward_history_file, "a") as file:
                 json.dump(episode_summary, file)
                 file.write("\n")
 
@@ -481,17 +496,13 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             self.rewards = []
             self.reward_components_log = {key: [] for key in reward_components.keys()}
 
-
-
-
-
         if self.render_mode == "human":
             self.render()
         return observation, reward, terminated, False, info
 
     def reset_model(self):
-       # self.step=0
-        self.episode_start_time=time.time()
+        # self.step=0
+        self.episode_start_time = time.time()
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
 
@@ -506,20 +517,20 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
         self.reward_components_log = {}
 
         observation = self._get_obs()
-      #  observation = torch.from_numpy(observation).float().to(device)
+        #  observation = torch.from_numpy(observation).float().to(device)
 
-
-
-
-        self.custom_env.update_state(observation)  # Move tensor to CPU and convert to NumPy
+        self.custom_env.update_state(
+            observation
+        )  # Move tensor to CPU and convert to NumPy
 
         return observation
-    
+
     def render(self, render_mode="human"):
         if render_mode == "rgb_array":
             return self.mujoco_renderer.render(render_mode="offscreen", camera_id=0)
         elif render_mode == "depth_array":
-            return self.mujoco_renderer.render(render_mode="offscreen", camera_id=0, depth=True)
+            return self.mujoco_renderer.render(
+                render_mode="offscreen", camera_id=0, depth=True
+            )
         else:
             self.mujoco_renderer.render(render_mode="human")
-

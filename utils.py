@@ -35,12 +35,12 @@ def define_function_from_string(
     - function: The defined function.
     """
     namespace = {}
-     #TODO: add more additional globals?
+    # TODO: add more additional globals?
 
     # TODO: add more additional globals?
     additional_globals = {
         "math": math,
-        'torch': torch,
+        "torch": torch,
         "np": np,
         "Tuple": Tuple,
         "List": List,
@@ -370,8 +370,8 @@ def cosine_annealing(
     return final_temp + 0.5 * (initial_temp - final_temp) * (
         1 + np.cos(np.pi * iteration / num_iterations)
     )
-    
-    
+
+
 def load_environment(env_choice: str, **kwargs):
     """
     Load the appropriate environment class dynamically.
@@ -385,7 +385,9 @@ def load_environment(env_choice: str, **kwargs):
     }
 
     if env_choice not in env_map:
-        raise ValueError(f"Unsupported environment choice: {env_choice}. Must be one of {list(env_map.keys())}.")
+        raise ValueError(
+            f"Unsupported environment choice: {env_choice}. Must be one of {list(env_map.keys())}."
+        )
 
     # Import and load the class dynamically
     module_path, class_name = env_map[env_choice].rsplit(".", 1)
@@ -394,4 +396,3 @@ def load_environment(env_choice: str, **kwargs):
 
     # Instantiate the environment with the provided kwargs
     return env_class(**kwargs)
-

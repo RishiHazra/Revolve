@@ -6,8 +6,8 @@ def calculate_fitness_score(log_file):
         for line in file:
             if "Success=True" in line:
                 # Extract the number of steps (removing the colon at the end)
-                steps = int(line.split()[4].replace(":", ""))  
-                
+                steps = int(line.split()[4].replace(":", ""))
+
                 # Calculate fitness score using the formula y = ax + b
                 a = -1 / 700
                 b = 75 / 70
@@ -15,7 +15,7 @@ def calculate_fitness_score(log_file):
             else:
                 # Success=False, fitness is 0
                 fitness = 0
-            
+
             total_fitness += fitness
             num_episodes += 1
 
@@ -26,6 +26,7 @@ def calculate_fitness_score(log_file):
         average_fitness = 0  # No episodes were found
 
     return average_fitness
+
 
 # Example usage:
 # average_fitness = calculate_fitness_score("performance_log.txt")

@@ -4,24 +4,23 @@ Various stages of individual generation, training, and evaluation:
 2. Policy Training
 3. Policy Evaluation
 """
-import multiprocessing
-import traceback
+
 import concurrent.futures
 import json
+import multiprocessing
 import os
-import hydra
 import time
-from typing import List, Tuple, Optional, Dict
-from hydra.core.global_hydra import GlobalHydra
-from typing import Callable, List
-import numpy as np
-import openai
-from openai import OpenAI
-import absl.logging as logging
-#from rl_agent.generate_scores import generate_behaviour
-from rl_agent.main import run_training
-from rl_agent.evaluate import return_score
+from typing import Tuple, Optional, Dict
 
+import absl.logging as logging
+import hydra
+import openai
+from hydra.core.global_hydra import GlobalHydra
+from openai import OpenAI
+
+from rl_agent.evaluate import return_score
+# from rl_agent.generate_scores import generate_behaviour
+from rl_agent.main import run_training
 from utils import parse_llm_output, serialize_dict, format_human_feedback
 
 openai_api_key = os.environ["OPENAI_API_KEY"]
@@ -61,10 +60,10 @@ class RewardFunctionGeneration:
 
     @staticmethod
     def prepare_in_context_prompt(
-        in_context_samples: Optional[List[Tuple[str, float]]],
-        operator_prompt: str,
-        evolve: bool,
-        baseline: str,
+            in_context_samples: Optional[List[Tuple[str, float]]],
+            operator_prompt: str,
+            evolve: bool,
+            baseline: str,
     ) -> str:
         # prepares a prompt from in context examples sampled from RewardsDatabase
         in_context_samples_str = ""
@@ -77,13 +76,13 @@ class RewardFunctionGeneration:
             reward_history_file = filename.replace(
                 "generated_fns", "reward_history"
             ).replace(".txt", ".json")
-           # reward_history = json.load(open(reward_history_file, "r"))
-            
+            # reward_history = json.load(open(reward_history_file, "r"))
+
             reward_history = []
             with open(reward_history_file, "r") as f:
                 for line in f:
                     reward_history.append(json.loads(line.strip()))
-            
+
             combined_components = {}
             for entry in reward_history:
                 for key, value in entry["episode_components"].items():
@@ -120,19 +119,20 @@ class RewardFunctionGeneration:
         # parsed_function_str = open("test_heuristic", "r").read()
         return parsed_function_str
 
+
 class TrainPolicy:
     """
     Train RL Policy
     """
 
     def __init__(
-        self,
-        reward_fn_str: str,
-        generation_id: int,
-        counter_id: int,
-        island_id: int,
-        baseline: str,
-        output_log: str,
+            self,
+            reward_fn_str: str,
+            generation_id: int,
+            counter_id: int,
+            island_id: int,
+            baseline: str,
+            output_log: str,
     ):
         self.train_cfg = None
         self._load_train_cfg()
@@ -143,8 +143,9 @@ class TrainPolicy:
         self.counter_id = counter_id
         self.baseline = baseline  # ['revolve', 'revolve_auto', 'eureka', 'eureka_auto']
         self.output_log = output_log
-        logging.info(f"Initializing TrainPolicy: generation_id={generation_id}, island_id={island_id}, type(island_id)={type(island_id)}")
-
+        logging.info(
+            f"Initializing TrainPolicy: generation_id={generation_id}, island_id={island_id}, type(island_id)={type(island_id)}"
+        )
 
     def _load_train_cfg(self):
         logging.info("Loading train cfg")
@@ -156,8 +157,7 @@ class TrainPolicy:
 
         # Convert absolute path to relative
         config_relative_path = os.path.relpath(
-            os.path.join(root_path, "cfg"),
-            start=os.getcwd()
+            os.path.join(root_path, "cfg"), start=os.getcwd()
         )
 
         # Clear Hydra global state if already initialized
@@ -169,48 +169,38 @@ class TrainPolicy:
             self.train_cfg = hydra.compose(config_name="train")
             logging.info("Training Config loaded")
 
-
-
-
-    def train_policy(self) -> str:
-          # This will define the compute_reward function dynamically
+    def train_policy(self) -> Tuple[str, str]:
+        # This will define the compute_reward function dynamically
 
         reward_history_file = os.path.join(
             self.output_log,
-            f"island_{self.island_id}/reward_history/{self.generation_id}_{self.counter_id}.json"
-        )
-                
-        checkpoint_file = os.path.join(
-            self.output_log,
-            f"island_{self.island_id}/model_checkpoints/{self.generation_id}_{self.counter_id}.h5"
-        )
-        
-        velocity_file = os.path.join(
-            self.output_log,
-            f"island_{self.island_id}/velocity_logs/velocity_{self.generation_id}_{self.counter_id}.txt"
+            f"island_{self.island_id}/reward_history/{self.generation_id}_{self.counter_id}.json",
         )
 
-        
-        
-        model_checkpoint_path = os.path.join(
+        checkpoint_file = os.path.join(
             self.output_log,
-            f"island_{self.island_id}/model_checkpoints"
+            f"island_{self.island_id}/model_checkpoints/{self.generation_id}_{self.counter_id}.h5",
         )
-                    
-            
+
+        velocity_file_path = os.path.join(
+            self.output_log,
+            f"island_{self.island_id}/velocity_logs/velocity_{self.generation_id}_{self.counter_id}.txt",
+        )
+
+        model_checkpoint_path = os.path.join(
+            self.output_log, f"island_{self.island_id}/model_checkpoints"
+        )
+
         fitness_file = os.path.join(
             self.output_log,
-            f"island_{self.island_id}/fitness_scores/{self.generation_id}_{self.counter_id}.txt"
+            f"island_{self.island_id}/fitness_scores/{self.generation_id}_{self.counter_id}.txt",
         )
 
         log_dir = os.path.join(
             self.output_log,
-            f"island_{self.island_id}/log_dir/{self.generation_id}_{self.counter_id}"
+            f"island_{self.island_id}/log_dir/{self.generation_id}_{self.counter_id}",
         )
-                    
-        
-        
-    
+
         run_training(
             self.reward_func_str,
             self.island_id,
@@ -219,11 +209,11 @@ class TrainPolicy:
             reward_history_file,
             model_checkpoint_path,
             fitness_file,
-            velocity_file,
+            velocity_file_path,
             self.output_log,
-            log_dir
+            log_dir,
         )
-        return checkpoint_file, velocity_file
+        return checkpoint_file, velocity_file_path
 
 
 # human evaluation, fitness functions
@@ -241,19 +231,22 @@ class RewardFunctionEvaluation:
     #     return reward_history_dict
 
     @staticmethod
-    def evaluate_behavior(full_velocity_log_path) -> Dict[str, float]: #        fitness_score=return_score(full_velocity_log_path)
-
-        fitness_score=(return_score(full_velocity_log_path))
+    def evaluate_behavior(
+            full_velocity_log_path,
+    ) -> Dict[str, float]:
+        fitness_score = return_score(full_velocity_log_path)
         return {"fitness": fitness_score}
 
 
-def train_policies_in_parallel(policy_classes: List[TrainPolicy]) -> List[str]:
-    multiprocessing.set_start_method('spawn', force=True)
+def train_policies_in_parallel(
+        policy_classes: List[TrainPolicy],
+) -> List[Tuple[str, str]]:
     """
     submit multiple training policies in parallel
     """
+    multiprocessing.set_start_method("spawn", force=True)
     with concurrent.futures.ProcessPoolExecutor(
-        max_workers=len(policy_classes)
+            max_workers=len(policy_classes)
     ) as executor:
         futures = [
             executor.submit(policy_class.train_policy)
@@ -263,19 +256,21 @@ def train_policies_in_parallel(policy_classes: List[TrainPolicy]) -> List[str]:
 
         results = [future.result() for future in futures]
     return results
-0.
 
 
-def evaluate_policies_in_parallel(results: List[Tuple[str, str]]) -> List[Dict[str, float]]:
+def evaluate_policies_in_parallel(
+        ckpt_and_performance_paths: List[Tuple[str, str]]
+) -> List[Dict[str, float]]:
     """
     Submit evaluation tasks in parallel with both checkpoint paths and velocity paths.
     """
-    with concurrent.futures.ProcessPoolExecutor(max_workers=len(results)) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+            max_workers=len(ckpt_and_performance_paths)
+    ) as executor:
         futures = [
             executor.submit(RewardFunctionEvaluation.evaluate_behavior, velocity_path)
-            for _, velocity_path in results
+            for _, velocity_path in ckpt_and_performance_paths
         ]
 
         fitness_dicts = [future.result() for future in futures]
     return fitness_dicts
-
