@@ -16,7 +16,6 @@ from functools import partial
 from utils import *
 import hydra
 import os
-print(f"ROOT_PATH: {os.environ.get('ROOT_PATH')}")
 
 def load_reward_function(file_path: str) -> Callable:
     """
@@ -227,7 +226,6 @@ def main(cfg):
             continue
         # train policies in parallel
         logging.info(f"Training {len(policies)} policies in parallel.")
-        print("preparing to run in parallel")
         ckpt_paths = train_policies_in_parallel(policies)
         logging.info("Policy training finished.")
 
@@ -236,9 +234,6 @@ def main(cfg):
         metrics_dicts = evaluate_policies_in_parallel(ckpt_paths)
         fitness_scores = [metric_dict["fitness"] for metric_dict in metrics_dicts]
         logging.info("Evaluation finished.")
-        print("fitness scores",fitness_scores)
-        print("fitness metrics_dicts",metrics_dicts)
-        print("island_ids",island_ids)
 
 
         # store individuals only if it improves overall island fitness
