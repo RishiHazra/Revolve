@@ -184,6 +184,11 @@ def main(cfg):
             #     reward_generation, in_context_prompt
             # )
             rew_func_str = load_reward_function('debug_reward.txt')
+            with open('debug_reward.txt', 'r') as f:
+                reward_func_str = f.read()
+
+            # Convert it to an executable function
+            reward_func, _ = define_function_from_string(reward_func_str)
 
             print("generated reward for counter",counter_id,rew_func_str)
         
@@ -191,7 +196,7 @@ def main(cfg):
                 # initialize RL agent policy with the generated reward function
                 policies.append(
                     TrainPolicy(
-                        rew_func_str,
+                        reward_func,
                         iteration_id,
                         counter_id,
                         island_id,

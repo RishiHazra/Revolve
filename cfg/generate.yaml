@@ -21,9 +21,9 @@ database:
   num_gpus: 1  # number of gpus to train policies on using parallel processing
 
 evolution:
-  num_generations: 1  # number of iterations T
+  num_generations: 2  # number of iterations T
   baseline: revolve_auto  # revolve, revolve_auto, eureka, eureka_auto
-  individuals_per_generation: 4
+  individuals_per_generation: 2
 
 few_shot:
   mutation: 1  # few-shot prompting for mutation
