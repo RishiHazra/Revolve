@@ -1,6 +1,7 @@
 import os
 import sys
 import traceback
+import numpy as np
 
 sys.path.append(os.environ["ROOT_PATH"])
 from rewards_database import RevolveDatabase, EurekaDatabase
@@ -15,20 +16,27 @@ from functools import partial
 from utils import *
 import hydra
 import os
-import multiprocessing  
-
 print(f"ROOT_PATH: {os.environ.get('ROOT_PATH')}")
 
-def load_reward_function(file_path: str):
+def load_reward_function(file_path: str) -> Callable:
+    """
+    Load and return a callable reward function from a file.
+    Args:
+    - file_path (str): Path to the file containing the reward function.
+
+    Returns:
+    - Callable: Executable reward function.
+    """
     with open(file_path, 'r') as f:
         reward_fn_str = f.read()
-
-    # # Create a dictionary for the execution context
-    # reward_fn_context = {}
-    # exec(reward_fn_str, {}, reward_fn_context)
-
-    # Return the loaded function
-    return reward_fn_str
+    
+    # Use define_function_from_string to make it executable
+    reward_func, _ = define_function_from_string(reward_fn_str)
+    
+    if reward_func is None:
+        raise ValueError("Failed to load a valid reward function.")
+    
+    return reward_func
 
 
 def is_valid_reward_fn(generated_fn: Callable, generated_fn_str: str, args: List[str]):
@@ -54,7 +62,7 @@ def generate_valid_reward(
     reward_generation: RewardFunctionGeneration,
     in_context_prompt: str,
     max_trials: int = 10,
-) -> [str, List[str]]:
+) -> [str, List[str], Callable]:
     """
     single function generation until valid
     :param reward_generation: initialized class of RewardFunctionGeneration
@@ -79,14 +87,12 @@ def generate_valid_reward(
             break  # Exit the loop if successful
         except Exception as e:
             logging.info(f"Specific error caught: {e}")
-            error = e
-            error_flag = True
         logging.info("Attempting to generate a new function due to an error.")
         trials += 1
         if trials >= max_trials:
             logging.info("Exceeded max trials.")
-            return None, None
-    return rew_func_str, args
+            return None, None, None
+    return rew_func_str, args, rew_func
 
 
 @hydra.main(
@@ -136,14 +142,14 @@ def main(cfg):
             baseline=cfg.evolution.baseline,
         )
 
-    for iteration_id in range(0, cfg.evolution.num_generations ):
+    for generation_id in range(0, cfg.evolution.num_generations ):
         # fix the temperature for sampling
-        temperature = temp_scheduler(iteration=iteration_id)
+        temperature = temp_scheduler(iteration=generation_id)
         print(
-            f"\n========= Generation {iteration_id} | Model: {cfg.evolution.baseline} | temperature: {round(temperature, 2)} =========="
+            f"\n========= Generation {generation_id} | Model: {cfg.evolution.baseline} | temperature: {round(temperature, 2)} =========="
         )
         # load all groups if iteration_id > 0, else initialize empty islands
-        rewards_database = database(load_islands=not iteration_id == 0)
+        rewards_database = database(load_islands=not generation_id == 0)
 
         rew_fn_strings = []  # valid rew fns
         # fitness_scores = []
@@ -154,11 +160,13 @@ def main(cfg):
 
         # for each generation, produce new individuals via mutation or crossover
         for counter_id in range(cfg.evolution.individuals_per_generation):
-            if iteration_id == 0:  # initially, uniformly populate the islands
+            if generation_id == 0:  # initially, uniformly populate the islands
                 # TODO: to avoid corner cases, populate all islands uniformly
                 island_id = random.choice(range(rewards_database.num_islands))
                 in_context_samples = (None, None)
                 operator_prompt = ""
+                logging.info(f"Generation {generation_id}, Counter {counter_id}: island_id={island_id}, type={type(island_id)}")
+
             else:  # gen_id > 0: start the evolutionary process
                 (
                     in_context_samples,
@@ -175,36 +183,31 @@ def main(cfg):
             in_context_prompt = RewardFunctionGeneration.prepare_in_context_prompt(
                 in_context_samples,
                 operator_prompt,
-                evolve=iteration_id > 0,
+                evolve=generation_id > 0,
                 baseline=cfg.evolution.baseline,
             )
             logging.info(f"Designing reward function for counter {counter_id}")
-            # generate valid fn str
-            # rew_func_str, _ = generate_valid_reward(
-            #     reward_generation, in_context_prompt
-            # )
-            rew_func_str = load_reward_function('debug_reward.txt')
-            with open('debug_reward.txt', 'r') as f:
-                reward_func_str = f.read()
-
-            # Convert it to an executable function
-            reward_func, _ = define_function_from_string(reward_func_str)
-
-            print("generated reward for counter",counter_id,rew_func_str)
+            #generate valid fn str
+            reward_func_str, _, rew_func_exec = generate_valid_reward(
+                reward_generation, in_context_prompt
+            )
+            # rew_func_path = '.../debug_reward.txt'
+            # with open(rew_func_path, 'r') as f:
+            #     reward_func_str = f.read()
         
             try:
                 # initialize RL agent policy with the generated reward function
                 policies.append(
                     TrainPolicy(
-                        reward_func,
-                        iteration_id,
+                        reward_func_str,
+                        generation_id,
                         counter_id,
                         island_id,
-                        cfg.evolution.baseline,
+                        cfg.evolution.baseline, #cfg.evolution.baseline
                         cfg.database.rewards_dir,
                     )
                 )
-                rew_fn_strings.append(rew_func_str)
+                rew_fn_strings.append(reward_func_str)
                 counter_ids.append(counter_id)
             except Exception as e:
                 logging.info(f"Error initializing TrainPolicy: {e}")
@@ -233,12 +236,16 @@ def main(cfg):
         metrics_dicts = evaluate_policies_in_parallel(ckpt_paths)
         fitness_scores = [metric_dict["fitness"] for metric_dict in metrics_dicts]
         logging.info("Evaluation finished.")
+        print("fitness scores",fitness_scores)
+        print("fitness metrics_dicts",metrics_dicts)
+        print("island_ids",island_ids)
+
 
         # store individuals only if it improves overall island fitness
         # for initialization, we don't use this step
-        if iteration_id > 0:
+        if generation_id > 0:
             rewards_database.add_individuals_to_islands(
-                [iteration_id] * len(island_ids),
+                [generation_id] * len(island_ids),
                 counter_ids,
                 rew_fn_strings,
                 fitness_scores,
@@ -247,7 +254,7 @@ def main(cfg):
             )
         else:  # initialization step (generation = 0)
             rewards_database.seed_islands(
-                [iteration_id] * len(island_ids),
+                [generation_id] * len(island_ids),
                 counter_ids,
                 rew_fn_strings,
                 fitness_scores,
@@ -266,10 +273,8 @@ def main(cfg):
             }
             for island_id, island in enumerate(rewards_database._islands)
         ]
-        tracker.log({"generation": iteration_id, "islands": island_info})
+        tracker.log({"generation": generation_id, "islands": island_info})
 
 
 if __name__ == "__main__":
-    multiprocessing.set_start_method('spawn', force=True)
-
     main()
