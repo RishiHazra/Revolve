@@ -45,8 +45,6 @@ def define_function_from_string(function_string: str) -> Tuple[Optional[Callable
 def call_reward_func_dynamically(reward_func, env_state):
     params = inspect.signature(reward_func).parameters
     args_to_pass = {param: env_state[param] for param in params if param in env_state}
-    #print("Reward function expected params:", params)
-    #print("Arguments passed to reward function:", args_to_pass)
     reward, reward_components = reward_func(**args_to_pass)
     return reward, reward_components
 
@@ -327,23 +325,10 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
 
         self.do_simulation(a, self.frame_skip)
         obs = self._get_obs()
-      #  print("Observation before passing to CustomEnvironment:", obs)
         joint_velocities = self.data.qvel.ravel()
         joint_forces = self.data.actuator_force.ravel()
         self.custom_env.update_state(obs, joint_velocities, joint_forces)
         reward, reward_components = call_reward_func_dynamically(self.reward_func, self.custom_env.env_state)
-
-        #self.custom_env.update_state(obs)  
-        # joint_velocities = self.data.qvel.ravel()
-        # joint_forces = self.data.actuator_force.ravel()  #
-        #
-#        self.custom_env.update_state(obs, joint_velocities, joint_forces)
-
-        #reward, reward_components = call_reward_func_dynamically(self.reward_func, self.custom_env.env_state)
-        #print("reward with dynamic way", reward, reward_components)
-        #reward,reward_components=self.reward_func(obs)
-        #print("reward with static way", reward, reward_components)
-
         self.rewards.append(reward)
         for key, value in reward_components.items():
             if key not in self.reward_components_log:
@@ -364,11 +349,7 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
             file.write(f"Reward {reward}\n")
                
         done = (goal_distance > 1.35) or (self.current_step >= 400)
-       # print("self.mode",self.mode)
         if done and self.mode == "test":
-            print("goal_achieved",goal_achieved)
-            print("current step",self.current_step)
-            # Write success and current step info to a file in test mode
             with open(self.filepath3, "a") as file:
                 file.write(f"Episode finished at step {self.current_step}: Success={goal_achieved}\n")
             # with open(self.filepath4, "a") as file:
@@ -413,9 +394,6 @@ class AdroitHandDoorEnv(MujocoEnv, EzPickle):
         else:
             door_open = -1.0
         latch_pos = qpos[-1]
-        # print("joint_velocities shape", joint_velocities.shape) 30
-        # print("joint_forces shape", joint_forces.shape)  28
-
         return np.concatenate(
         [
             qpos[1:-2],             # Existing joint positions
