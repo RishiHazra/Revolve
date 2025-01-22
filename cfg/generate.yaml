@@ -4,30 +4,36 @@ defaults:
   - config
   - _self_
 
+root_dir: ${oc.env:ROOT_PATH}
+
 database:
   # folders
   rewards_dir: ${root_dir}/database/${evolution.baseline}/${data_paths.run}  # store path for rewards database
   # hyper params
-  num_groups: 15  # number of groups/populations to start with
-  max_group_size: 8  # max number of samples in each group
+  num_islands: 2  # number of groups/populations to start with
+  max_island_size: 2  # max number of samples in each group
 #  reset_period: 8  # reset the lowest performing group after period (iterations)
   crossover_prob: 0.5  # probability of preferring a crossover over mutation
   migration_prob: 0.3  # probability of resetting weaker islands with seeds migrated from other islands
   # sampling hyperparameters
   initial_temp: 1  # start with a higher temperature for uniform sampling (exploration)
   final_temp: 1  # exploitation
-  num_gpus: 4  # number of gpus to train policies on using parallel processing
+  num_gpus: 1  # number of gpus to train policies on using parallel processing
 
 evolution:
-  num_generations: 6  # number of iterations T
+  num_generations: 2  # number of iterations T
   baseline: revolve_auto  # revolve, revolve_auto, eureka, eureka_auto
-  individuals_per_generation: 20
+  individuals_per_generation: 2
 
 few_shot:
   mutation: 1  # few-shot prompting for mutation
   crossover: 2  # few-shot prompting for crossover
 
 data_paths:
-  log: True # log metrics and stats
+  log: True  # log metrics and stats
   run: 10
   output_logs: ${root_dir}/logs/${evolution.baseline}/${data_paths.run}
+
+environment:
+  name: "HumanoidEnv"  # Choose between "HumanoidEnv" or "AdroitHandDoorEnv"
+

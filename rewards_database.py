@@ -37,6 +37,7 @@ class RevolveDatabase:
         self.crossover_prob = crossover_prob
         self.migration_prob = migration_prob
         self.baseline = baseline
+        self.heuristic_dir = reward_fn_dir
 
         self._islands: List[Island] = []
         if load_islands:
@@ -49,7 +50,7 @@ class RevolveDatabase:
         else:
             # Initialize empty islands.
             self._islands = [
-                Island(island_id, [], [], [], [], [], self.heuristic_dir)
+                Island(island_id, [], [], [], [], [], self.heuristic_dir,self.baseline)
                 for island_id in range(self.num_islands)
             ]
 
@@ -78,9 +79,11 @@ class RevolveDatabase:
             counter_ids,
             rew_fn_strings,
             fitness_scores,
-            island_ids,
             metrics_dicts,
+            island_ids
         ):
+            logging.info(f"Inside seed_islands: island_id={island_id}, type={type(island_id)}, generation_id={generation_id}, counter_id={counter_id}")
+
             self._islands[island_id].register_individual_in_island(
                 generation_id, counter_id, rew_fn_string, fitness_score, metrics_dict
             )
@@ -298,7 +301,9 @@ class EurekaDatabase:
             self._islands = [Island.load_island(self.reward_fn_dir, self.baseline, 0)]
         else:
             # Initialize empty islands.
-            self._islands = [Island(0, [], [], [], [], [], self.reward_fn_dir)]
+            self._islands = [Island(0, [], [], [], [], [], self.reward_fn_dir, self.baseline)]
+
+            
 
     def add_individuals_to_islands(
         self,
@@ -328,6 +333,8 @@ class EurekaDatabase:
             island_ids,
             metrics_dicts,
         ):
+            logging.info(f"Accessing _islands[{island_id}] in seed_islands; type={type(island_id)}")
+
             self._islands[0].register_individual_in_island(
                 generation_id,
                 counter_id,

@@ -36,3 +36,4 @@ gymnasium[mujoco]==0.29.1
 gymnasium-robotics==1.2.4
 gymnasium==0.29.1
 stable-baselines3==2.3.2
+tensorboard==2.10.1

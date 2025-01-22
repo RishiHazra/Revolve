@@ -6,9 +6,9 @@ import fcntl
 from copy import copy, deepcopy
 from collections import Counter
 from typing import Optional, Callable, List, Tuple, Dict
+import torch
 
 import numpy as np
-import tensorflow as tf
 
 
 class DataLogger:
@@ -35,10 +35,12 @@ def define_function_from_string(
     - function: The defined function.
     """
     namespace = {}
+     #TODO: add more additional globals?
+
     # TODO: add more additional globals?
     additional_globals = {
         "math": math,
-        "tf": tf,
+        'torch': torch,
         "np": np,
         "Tuple": Tuple,
         "List": List,
@@ -368,3 +370,28 @@ def cosine_annealing(
     return final_temp + 0.5 * (initial_temp - final_temp) * (
         1 + np.cos(np.pi * iteration / num_iterations)
     )
+    
+    
+def load_environment(env_choice: str, **kwargs):
+    """
+    Load the appropriate environment class dynamically.
+    :param env_choice: The environment choice from the configuration ("HumanoidEnv" or "AdroitHandDoorEnv").
+    :param kwargs: Additional arguments to pass to the environment constructor.
+    :return: An instance of the selected environment.
+    """
+    env_map = {
+        "HumanoidEnv": "rl_agent.HumanoidEnv.HumanoidEnv",
+        "AdroitHandDoorEnv": "rl_agent.AdroitEnv.AdroitHandDoorEnv",
+    }
+
+    if env_choice not in env_map:
+        raise ValueError(f"Unsupported environment choice: {env_choice}. Must be one of {list(env_map.keys())}.")
+
+    # Import and load the class dynamically
+    module_path, class_name = env_map[env_choice].rsplit(".", 1)
+    module = __import__(module_path, fromlist=[class_name])
+    env_class = getattr(module, class_name)
+
+    # Instantiate the environment with the provided kwargs
+    return env_class(**kwargs)
+

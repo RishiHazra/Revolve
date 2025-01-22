@@ -30,7 +30,6 @@ class RewardLoggerCallback(BaseCallback):
         # Get the info dictionary from the environment
         info = self.locals.get("infos", [])[0]
         episode_info = info.get('episode', {})
-        print("info, episode info", info, episode_info)
 
         if episode_info or 1 > 0:  # Always true, to avoid conditional logging issues
             # Extract the reward components
@@ -55,10 +54,11 @@ class RewardLoggerCallback(BaseCallback):
 
 
 class VelocityLoggerCallback(BaseCallback):
-    def __init__(self, velocity_dir, velocity_filename, verbose=0):
+    def __init__(self, velocity_filepath, verbose=0):
         super(VelocityLoggerCallback, self).__init__(verbose)
-        self.velocity_filepath = os.path.join(velocity_dir, velocity_filename)
-        os.makedirs(velocity_dir, exist_ok=True)  # Ensure the directory exists
+        self.velocity_filepath = velocity_filepath
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(self.velocity_filepath), exist_ok=True)
 
     def _on_step(self) -> bool:
         info = self.locals.get("infos", [])
@@ -70,14 +70,17 @@ class VelocityLoggerCallback(BaseCallback):
         return True
 
 
-def train(env, sb3_algo,reward_fn_path, counter,iteration,group_id, llm_model, load_model, baseline):
+#    train(env, sb3_algo, reward_func, island_id, generation_id, counter)
+
+def train(env, sb3_algo,reward_func, island_id, generation_id, counter, velocity_path, model_checkpoint_path, output_path, log_dir):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_dir=os.path.join(os.environ['ROOT_PATH'],f'{baseline}/{llm_model}/group_{group_id}/model_checkpoints/SAC_{iteration}_{counter}')  #        model.save(f"{model_dir}/{sb3_algo}_{current_timesteps}")
-    log_dir=os.path.join(os.environ['ROOT_PATH'],f'{baseline}/{llm_model}/group_{group_id}/model_checkpoints/SAC_{iteration}_{counter}')  #        model.save(f"{model_dir}/{sb3_algo}_{current_timesteps}")
     current_timesteps=0
-    velocity_dir = os.path.join(os.environ['ROOT_PATH'], f'{baseline}/{llm_model}/group_{group_id}/reward_history')
-    velocity_filename = f"velocity_{iteration}_{counter}.txt"
-    velocity_callback = VelocityLoggerCallback(velocity_dir=velocity_dir, velocity_filename=velocity_filename, verbose=1)
+    velocity_callback = VelocityLoggerCallback(
+            velocity_filepath=velocity_path,  # Directly use the full file path
+            verbose=1,
+        )
+    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(model_checkpoint_path, exist_ok=True)
     
     reward_callback = RewardLoggerCallback(log_dir, verbose=1)
 
@@ -95,20 +98,23 @@ def train(env, sb3_algo,reward_fn_path, counter,iteration,group_id, llm_model, l
     elif sb3_algo == 'custom_net':
         model = SAC(CustomSACPolicy, env, verbose=1, device=device, tensorboard_log=log_dir)
 
-    TIMESTEPS = 0
+    TIMESTEPS = 500
     #total_timesteps = 3000000
-    total_timesteps = 3000000 
+    total_timesteps = 1000 
     
 
     while current_timesteps < total_timesteps:
         model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, callback=[velocity_callback, reward_callback])
         current_timesteps += TIMESTEPS
-
-        model.save(f"{model_dir}/{sb3_algo}_{current_timesteps}")
+        model_save_path = os.path.join(model_checkpoint_path, f"{sb3_algo}_{current_timesteps}.zip")
+        model_save_path = os.path.join(
+            model_checkpoint_path, 
+            f"{sb3_algo}_{generation_id}_{counter}_{current_timesteps}.zip"
+        )
+        model.save(model_save_path)
         env.render()
         
         
-    return velocity_callback.velocity_filepath
 
         
     
@@ -122,22 +128,24 @@ def train(env, sb3_algo,reward_fn_path, counter,iteration,group_id, llm_model, l
 #         render_mode=None
 #     )   
 
-def run_training(reward_fn_path, counter,iteration,group_id, llm_model, load_model, baseline):
-    gymenv=HumanoidEnv(reward_fn_path=reward_fn_path,
+def run_training(reward_func, island_id, generation_id, counter, reward_history_file, model_checkpoint_file, fitness_file,velocity_file, output_path, log_dir):
+    gymenv = HumanoidEnv(
+        reward_func_str=reward_func,
         counter=counter,
-        iteration=iteration,
-        group_id=group_id,
-        llm_model=llm_model,
-        baseline=baseline,
-        render_mode=None)
+        generation_id=generation_id,
+        island_id=island_id,
+        reward_history_file=reward_history_file,
+        model_checkpoint_file=model_checkpoint_file,
+        velocity_file=velocity_file,
+    )
     sb3_algo='SAC'
 
     env = Monitor(gymenv)  # Ensure monitoring
     env = DummyVecEnv([lambda: env])
-    env = VecNormalize(env, norm_obs=False, norm_reward=False, clip_obs=100.0,clip_reward=100)
-    velocity_filepath= train(env, sb3_algo,reward_fn_path, counter,iteration,group_id, llm_model, load_model,baseline)
+    env = VecNormalize(env, norm_obs=False, norm_reward=False, clip_obs=100.0,clip_reward=100) # if norm_obs or norm_reward is true you need to save the state of the vecnormalize when loading the model weights.
+    train(env, sb3_algo, reward_func, island_id, generation_id, counter, velocity_file, model_checkpoint_file, output_path, log_dir) 
     
-    return velocity_filepath
+    #return velocity_filepath
     
     
 

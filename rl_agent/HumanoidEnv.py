@@ -12,7 +12,6 @@ logging.basicConfig(filename='debug.log', level=logging.DEBUG)
 import json
 import os
 from rl_agent.environment import CustomEnvironment
-
 import numpy as np
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -307,12 +306,13 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
     def __init__(
         self,
-        reward_fn_path: str,
-        llm_model: str ,
+        reward_func_str: str,
         counter: int,
-        iteration: int,
-        group_id: str ,
-        baseline: str,
+        generation_id: int,
+        island_id: str ,
+        reward_history_file: str,
+        velocity_file: str,
+        model_checkpoint_file:str,
         terminate_when_unhealthy=True,
         
       
@@ -330,27 +330,36 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             exclude_current_positions_from_observation,
             **kwargs,
         )
-        self.reward_fn_path = reward_fn_path
+       ########################       if you have already generated                  ########################
+       ########################       a reward file and                              ########################
+       ########################      you have the path instead of the                ######################## 
+       ########################      def compute_reward ... uncomment these lines:   ########################
+       
+        # with open(reward_func_str, 'r') as f:
+        #     reward_func_str = f.read()
+        
+        self.reward_func, _ = define_function_from_string(reward_func_str)
         self.counter = counter
-        self.iteration = iteration
-        self.group_id = group_id
-        self.llm_model = llm_model
-        self.baseline = baseline
+        self.iteration = generation_id
+        self.island_id = island_id
         self._terminate_when_unhealthy = terminate_when_unhealthy
         self._healthy_z_range = healthy_z_range
         self.total_steps=0
         self.custom_env=CustomEnvironment()
-        self.base_path=  os.path.join(os.environ['ROOT_PATH'],
-                            f"{baseline}/{llm_model}/group_{group_id}/reward_history")
-        self.filename = f"{self.iteration}_{self.counter}.json"
-        self.filepath = os.path.join(self.base_path, self.filename)
-        os.makedirs( self.base_path, exist_ok=True)
+        self.reward_history_file = reward_history_file
+        self.model_checkpoint_file = model_checkpoint_file
+        self.velocity_file = velocity_file
+
+
+        os.makedirs(os.path.dirname(self.reward_history_file), exist_ok=True)
+        os.makedirs(os.path.dirname(self.model_checkpoint_file), exist_ok=True)
+        os.makedirs(os.path.dirname(self.velocity_file), exist_ok=True)
+        
+
+
+
 
         self._reset_noise_scale = reset_noise_scale
-       # reward_func_path = 'reward_func.txt'
-        reward_func_str = open(reward_fn_path, 'r').read()
-        self.reward_func, _ = define_function_from_string(reward_func_str)
-
         self._exclude_current_positions_from_observation = (
             exclude_current_positions_from_observation
         )
@@ -372,11 +381,6 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             **kwargs,
         )
-        print("Observation Space:", self.observation_space)
-      # Print the action space
-        print("Action Space:", self.action_space)
-        # Print the state space dimension (i.e., observation space shape)
-        print("State Space Dimension:", self.observation_space.shape)
     @property
     def healthy_reward(self):
         return (
@@ -398,7 +402,6 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
     @property
     def terminated(self):
         terminated = (not self.is_healthy) if self._terminate_when_unhealthy else False
-        print("self!!!!!!!!!!!!!!y step",self.total_steps)
         if(self.total_steps>1000):
             terminated=True
             self.total_steps=0
@@ -427,27 +430,20 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
     def step(self, action):
         self.total_steps=self.total_steps +1
-       # print("current steps ",self.total_steps)
         xy_position_before = mass_center(self.model, self.data)
-      #  print(f"Action predicted: {action}")  # Display the action to observe its values
 
         self.do_simulation(action, self.frame_skip)
         xy_position_after = mass_center(self.model, self.data)
 
         xy_velocity = (xy_position_after - xy_position_before) / self.dt
         x_velocity, y_velocity = xy_velocity
-        #with open('velocity_log.txt', 'a') as f:
-        #    f.write(f"{x_velocity}\n")
-        print("x_vel",x_velocity)
-
-
         observation = self._get_obs()
-     #   observation = torch.from_numpy(observation).float().to(device)
-     #   self.custom_env.update_state(observation.cpu().numpy())
         self.custom_env.update_state(observation)  # Convert from tensor if necessary
 
     # Here you can optionally compute reward using CustomEnvironment
         reward, reward_components = call_reward_func_dynamically(self.reward_func, self.custom_env.env_state)
+        #    reward, reward_components = self.reward_func(**self.custom_env.env_state)
+
         self.rewards.append(reward)
         for key, value in reward_components.items():
             if key not in self.reward_components_log:
@@ -468,21 +464,23 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
             info['episode'] = {
                 'r': sum(self.rewards),
                 'l': len(self.rewards),
-                't': time.time() - self.episode_start_time
+                't': time.time() - self.episode_start_time,
             }
-            episode_summary = {
-            'total_reward': sum(self.rewards),
-            'episode_components': {key: sum(values) for key, values in self.reward_components_log.items()}
-        }
 
-        # Append episode summary to a JSON file
-            with open(self.filepath, 'a') as file:
+            episode_summary = {
+                'total_reward': sum(self.rewards),
+                'episode_components': {key: sum(values) for key, values in self.reward_components_log.items()}
+            }
+
+            # Append episode summary to the JSON file
+            with open(self.reward_history_file, 'a') as file:
                 json.dump(episode_summary, file)
-                file.write("\n")  # New line for each episode
+                file.write("\n")
 
             # Reset rewards and components for the next episode
             self.rewards = []
             self.reward_components_log = {key: [] for key in reward_components.keys()}
+
 
 
 
