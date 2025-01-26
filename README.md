@@ -33,7 +33,6 @@ pip install -e .
 export ROOT_PATH='Revolve'
 export OPENAI_API_KEY='<your openai key>'
 python main.py \ 
-        search.type=dpll \  # dpll, local_search 
         evolution.num_generations=5 \  # number of generations
         evolution.individuals_per_generation=15 \  # number of individuals in each generation
         database.num_islands=5 \  # number of groups/populations to start with
