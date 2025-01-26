@@ -10,8 +10,8 @@ database:
   # folders
   rewards_dir: ${root_dir}/database/${evolution.baseline}/${data_paths.run}  # store path for rewards database
   # hyper params
-  num_islands: 2  # number of groups/populations to start with
-  max_island_size: 2  # max number of samples in each group
+  num_islands: 4  # number of groups/populations to start with
+  max_island_size: 8  # max number of samples in each group
 #  reset_period: 8  # reset the lowest performing group after period (iterations)
   crossover_prob: 0.5  # probability of preferring a crossover over mutation
   migration_prob: 0.3  # probability of resetting weaker islands with seeds migrated from other islands
@@ -21,9 +21,9 @@ database:
   num_gpus: 1  # number of gpus to train policies on using parallel processing
 
 evolution:
-  num_generations: 2  # number of iterations T
+  num_generations: 7  # number of iterations T
   baseline: revolve_auto  # revolve, revolve_auto, eureka, eureka_auto
-  individuals_per_generation: 2
+  individuals_per_generation: 15  # number of individuals in each generation
 
 few_shot:
   mutation: 1  # few-shot prompting for mutation

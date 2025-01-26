@@ -1,0 +1,118 @@
+Metadata-Version: 2.2
+Name: revolve
+Version: 0.0.0
+Summary: REvolve: Reward Evolution with Large Language Models using Human Feedback
+Author-email: Rishi Hazra <rishi.hazra@oru.se>, Alkis Sygkounas <alkis.sygkounas@oru.se>
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: openai
+Requires-Dist: hydra-core==1.3.2
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: absl-py
+Requires-Dist: aiosignal
+Requires-Dist: aiohttp
+Requires-Dist: async-timeout
+Requires-Dist: blinker
+Requires-Dist: brotli
+Requires-Dist: frozenlist
+Requires-Dist: gast
+Requires-Dist: google-auth
+Requires-Dist: google-auth-oauthlib
+Requires-Dist: google-pasta
+Requires-Dist: h5py==3.10.0
+Requires-Dist: markdown
+Requires-Dist: multidict
+Requires-Dist: oauthlib
+Requires-Dist: opt_einsum
+Requires-Dist: protobuf
+Requires-Dist: pyasn1
+Requires-Dist: pyasn1-modules
+Requires-Dist: pyjwt
+Requires-Dist: pyopenssl
+Requires-Dist: requests-oauthlib
+Requires-Dist: rsa
+Requires-Dist: tensorboard-data-server==0.6.1
+Requires-Dist: tensorboard-plugin-wit==1.8.1
+Requires-Dist: termcolor
+Requires-Dist: werkzeug
+Requires-Dist: wrapt
+Requires-Dist: yarl
+Requires-Dist: mujoco==2.3.7
+Requires-Dist: gymnasium[mujoco]==0.29.1
+Requires-Dist: gymnasium-robotics==1.2.4
+Requires-Dist: gymnasium==0.29.1
+Requires-Dist: stable-baselines3==2.3.2
+Requires-Dist: tensorboard==2.10.1
+
+# REvolve: Reward Evolution with Large Language Models using Human Feedback
+******************************************************
+**Official code release of our ICLR 2025 paper.**
+
+<p align="center">
+    <a href="https://rishihazra.github.io/REvolve/" target="_blank">
+        <img alt="Documentation" src="https://img.shields.io/website/https/rishihazra.github.io/EgoTV?down_color=red&down_message=offline&up_message=link">
+    </a>
+    <a href="https://arxiv.org/abs/2406.01309" target="_blank">
+        <img src="https://img.shields.io/badge/arXiv-2406.01309-red">
+    </a>
+    <a href="https://arxiv.org/pdf/2406.01309">
+        <img src="https://img.shields.io/badge/Downloads-PDF-blue">
+    </a>
+</p>
+
+<p align="center">
+  <img src="revolve.gif" alt="egoTV">
+</p>
+
+## Setup
+```shell
+# clone the repository 
+git clone https://github.com/RishiHazra/Revolve.git
+cd Revolve
+pip install -e .
+```
+
+## Run
+```shell
+export ROOT_PATH='Revolve'
+export OPENAI_API_KEY='<your openai key>'
+python main.py
+```
+
+*Note, we will soon release the AirSim environment setup script.*
+
+For AirSim, follow the instruction on this link [https://microsoft.github.io/AirSim/build_linux/](AirSim)
+```shell
+export AIRSIM_PATH='AirSim'
+export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
+```
+
+## Other Utilities
+* The prompts are listed in ```prompts``` folder.
+* Elo scoring in ```human_feedback``` folder
+
+## Citation
+
+### To cite our paper:
+```bibtex
+@misc{hazra2024revolverewardevolutionlarge,
+      title={REvolve: Reward Evolution with Large Language Models using Human Feedback}, 
+      author={Rishi Hazra and Alkis Sygkounas and Andreas Persson and Amy Loutfi and Pedro Zuidberg Dos Martires},
+      year={2024},
+      eprint={2406.01309},
+      archivePrefix={arXiv},
+      primaryClass={cs.NE},
+      url={https://arxiv.org/abs/2406.01309}, 
+}
+```

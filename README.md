@@ -23,6 +23,8 @@
 # clone the repository 
 git clone https://github.com/RishiHazra/Revolve.git
 cd Revolve
+conda create -n "revolve" python=3.10
+conda activate revolve
 pip install -e .
 ```
 
@@ -30,15 +32,22 @@ pip install -e .
 ```shell
 export ROOT_PATH='Revolve'
 export OPENAI_API_KEY='<your openai key>'
-python main.py
+python main.py \ 
+        search.type=dpll \  # dpll, local_search 
+        evolution.num_generations=5 \  # number of generations
+        evolution.individuals_per_generation=15 \  # number of individuals in each generation
+        database.num_islands=5 \  # number of groups/populations to start with
+        database.max_island_size=8 \  # max number of samples in each group/population
+        data_paths.run=10 \  # run_id
+        environment.name="HumanoidEnv"  # Choose between "HumanoidEnv" or "AdroitHandDoorEnv"
 ```
 
 *Note, we will soon release the AirSim environment setup script.*
 
 For AirSim, follow the instruction on this link [https://microsoft.github.io/AirSim/build_linux/](AirSim)
 ```shell
-$ export AIRSIM_PATH='AirSim'
-$ export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
+export AIRSIM_PATH='AirSim'
+export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
 ```
 
 ## Other Utilities
