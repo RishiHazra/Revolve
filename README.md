@@ -57,13 +57,11 @@ export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
 
 ### To cite our paper:
 ```bibtex
-@misc{hazra2024revolverewardevolutionlarge,
-      title={REvolve: Reward Evolution with Large Language Models using Human Feedback}, 
-      author={Rishi Hazra and Alkis Sygkounas and Andreas Persson and Amy Loutfi and Pedro Zuidberg Dos Martires},
-      year={2024},
-      eprint={2406.01309},
-      archivePrefix={arXiv},
-      primaryClass={cs.NE},
-      url={https://arxiv.org/abs/2406.01309}, 
+@inproceedings{hazra2025revolve,
+	title        = {{RE}volve: Reward Evolution with Large Language Models using Human Feedback},
+	author       = {RISHI HAZRA and Alkis Sygkounas and Andreas Persson and Amy Loutfi and Pedro Zuidberg Dos Martires},
+	year         = 2025,
+	booktitle    = {The Thirteenth International Conference on Learning Representations},
+	url          = {https://openreview.net/forum?id=cJPUpL8mOw}
 }
 ```
