@@ -65,3 +65,5 @@ export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
 	url          = {https://openreview.net/forum?id=cJPUpL8mOw}
 }
 ```
+## License  
+REvolve code is licensed under the MIT license.
