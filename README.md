@@ -59,11 +59,11 @@ export AIRSIMNH_PATH='AirSimNH/AirSimNH/LinuxNoEditor/AirSimNH.sh'
 ```bibtex
 @inproceedings{hazra2025revolve,
 	title        = {{RE}volve: Reward Evolution with Large Language Models using Human Feedback},
-	author       = {RISHI HAZRA and Alkis Sygkounas and Andreas Persson and Amy Loutfi and Pedro Zuidberg Dos Martires},
+	author       = {Rishi Hazra and Alkis Sygkounas and Andreas Persson and Amy Loutfi and Pedro Zuidberg Dos Martires},
 	year         = 2025,
 	booktitle    = {The Thirteenth International Conference on Learning Representations},
 	url          = {https://openreview.net/forum?id=cJPUpL8mOw}
 }
 ```
 ## License  
-REvolve code is licensed under the MIT license.
+REvolve code is licensed under the [MIT license](https://github.com/RishiHazra/Revolve/blob/main/LICENSE).
